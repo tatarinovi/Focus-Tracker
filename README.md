@@ -249,8 +249,8 @@ Required release secrets:
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` if the key is protected with a password
 
 Каналы обновлений:
-- **Stable**: tags like `v2.0.4`
-- **Beta**: tags like `v2.0.4-beta.1` and GitHub prereleases
+- **Stable**: tags like `v1.0.0`
+- **Beta**: tags like `v1.0.1-beta.1` and GitHub prereleases
 
 ---
 
