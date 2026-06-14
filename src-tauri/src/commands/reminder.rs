@@ -57,7 +57,7 @@ pub async fn show_meeting_reminder(
     }
 
     // Create reminder window
-    let mut builder = tauri::WebviewWindowBuilder::new(
+    let builder = tauri::WebviewWindowBuilder::new(
         &app,
         "reminder",
         tauri::WebviewUrl::App("reminder.html".into()),
@@ -70,9 +70,7 @@ pub async fn show_meeting_reminder(
     .skip_taskbar(true);
 
     #[cfg(target_os = "windows")]
-    {
-        builder = builder.transparent(true);
-    }
+    let builder = builder.transparent(true);
 
     let window = builder.build().map_err(|e| e.to_string())?;
 
