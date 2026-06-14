@@ -3,7 +3,7 @@ import { memoryLocation } from "wouter/memory-location";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
-import { Target, LayoutGrid, Calendar, Clock, Timer, FileText, Settings, Info, Bell, Minimize2, Maximize2, Coffee, Circle, Menu, X, Minus, Square } from "lucide-react";
+import { Target, LayoutGrid, Calendar, Clock, Timer, FileText, Settings, Info, Bell, Minimize2, Maximize2, Coffee, Circle, Menu, X, Minus, Square, Ticket } from "lucide-react";
 import { AppProvider, useApp } from "@/context/AppContext";
 import { formatSeconds, formatMinutes } from "@/data/mockData";
 import { playAppSound } from "@/lib/appAudio";
@@ -87,6 +87,7 @@ const PomodoroPage = lazy(() => import("@/pages/PomodoroPage"));
 const NotesPage = lazy(() => import("@/pages/NotesPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const AboutPage = lazy(() => import("@/pages/AboutPage"));
+const JiraPage = lazy(() => import("@/pages/JiraPage"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 const queryClient = new QueryClient();
@@ -268,6 +269,7 @@ function Sidebar({ isNarrow, isOpen, onClose }: { isNarrow: boolean; isOpen: boo
   const navItems = [
     { href: "/", label: "Главная", icon: Target },
     { href: "/kanban", label: "Kanban", icon: LayoutGrid },
+    { href: "/jira", label: "Jira", icon: Ticket },
     { href: "/calendar", label: "Календарь", icon: Calendar },
     { href: "/history", label: "История", icon: Clock },
     { href: "/pomodoro", label: "Pomodoro", icon: Timer },
@@ -648,6 +650,7 @@ function Router() {
     <Switch>
       <Route path="/" component={FocusPage} />
       <Route path="/kanban" component={KanbanPage} />
+      <Route path="/jira" component={JiraPage} />
       <Route path="/calendar" component={CalendarPage} />
       <Route path="/history" component={HistoryPage} />
       <Route path="/pomodoro" component={PomodoroPage} />
