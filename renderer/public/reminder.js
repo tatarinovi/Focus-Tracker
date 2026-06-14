@@ -1,5 +1,6 @@
-const { invoke } = window.__TAURI__.core;
-const { listen } = window.__TAURI__.event;
+const tauri = window.__TAURI__;
+const invoke = tauri?.core?.invoke ?? (() => Promise.reject(new Error('Tauri IPC not available')));
+const listen = tauri?.event?.listen ?? (() => () => {});
 
 const reminderApi = {
   getData: () => invoke("get_reminder_data"),

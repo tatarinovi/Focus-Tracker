@@ -1,8 +1,13 @@
-use tauri::{Emitter, Manager};
+use tauri::{
+    menu::{MenuBuilder, MenuItemBuilder},
+    tray::{TrayIconBuilder, TrayIconEvent},
+    Emitter, Manager,
+};
 
 mod commands;
 
 use commands::reminder::ReminderState;
+use commands::window::TimerCloseGuardState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -15,16 +20,37 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .manage(ReminderState::default())
+        .manage(TimerCloseGuardState::default())
         .manage(commands::updates::UpdaterState::default())
         .setup(|app| {
             // Emit maximize state changes
             if let Some(window) = app.get_webview_window("main") {
                 let w = window.clone();
+                let app_handle = app.handle().clone();
                 window.on_window_event(move |event| {
-                    if let tauri::WindowEvent::Resized(_) = event {
-                        if let Ok(is_max) = w.is_maximized() {
-                            let _ = w.emit("window-maximize-changed", is_max);
+                    match event {
+                        tauri::WindowEvent::Resized(_) => {
+                            if let Ok(is_max) = w.is_maximized() {
+                                let _ = w.emit("window-maximize-changed", is_max);
+                            }
                         }
+                        tauri::WindowEvent::CloseRequested { api, .. } => {
+                            let is_timer_active = app_handle
+                                .try_state::<TimerCloseGuardState>()
+                                .and_then(|state| {
+                                    state.is_timer_active.lock().ok().map(|guard| *guard)
+                                })
+                                .unwrap_or(false);
+
+                            if is_timer_active {
+                                api.prevent_close();
+                                let _ = w.unminimize();
+                                let _ = w.show();
+                                let _ = w.set_focus();
+                                let _ = w.emit("active-timer-close-blocked", ());
+                            }
+                        }
+                        _ => {}
                     }
                 });
             }
@@ -34,6 +60,59 @@ pub fn run() {
                 let is_max = window.is_maximized().unwrap_or(false);
                 let _ = window.emit("window-maximize-changed", is_max);
             }
+
+            // System tray
+            let show_item = MenuItemBuilder::new("Показать окно")
+                .id("show")
+                .build(app)?;
+            let quit_item = MenuItemBuilder::new("Выход")
+                .id("quit")
+                .build(app)?;
+            let menu = MenuBuilder::new(app)
+                .items(&[&show_item, &quit_item])
+                .build()?;
+
+            let _tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon()
+                    .expect("No default window icon configured in tauri.conf.json")
+                    .clone())
+                .menu(&menu)
+                .show_menu_on_left_click(false)
+                .on_menu_event(move |app, event| {
+                    match event.id().as_ref() {
+                        "show" => {
+                            if let Some(w) = app.get_webview_window("main") {
+                                let _ = w.show();
+                                let _ = w.unminimize();
+                                let _ = w.set_focus();
+                            }
+                        }
+                        "quit" => {
+                            app.exit(0);
+                        }
+                        _ => {}
+                    }
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: tauri::tray::MouseButton::Left,
+                        button_state: tauri::tray::MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        let app = tray.app_handle();
+                        if let Some(w) = app.get_webview_window("main") {
+                            if w.is_visible().unwrap_or(false) {
+                                let _ = w.hide();
+                            } else {
+                                let _ = w.show();
+                                let _ = w.unminimize();
+                                let _ = w.set_focus();
+                            }
+                        }
+                    }
+                })
+                .build(app)?;
 
             Ok(())
         })
@@ -88,6 +167,7 @@ pub fn run() {
             commands::window::is_always_on_top,
             commands::window::get_window_bounds,
             commands::window::set_window_bounds,
+            commands::window::set_timer_close_guard,
             // System
             commands::system::notify,
             commands::system::open_external,

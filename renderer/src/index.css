@@ -195,8 +195,9 @@
 
 @layer base {
   * { @apply border-border; }
-  body { @apply font-sans antialiased bg-background text-foreground; }
+  body { @apply font-sans antialiased bg-background text-foreground select-none; }
   :focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+  .select-text, .select-text * { user-select: text; -webkit-user-select: text; }
 }
 
 @layer utilities {

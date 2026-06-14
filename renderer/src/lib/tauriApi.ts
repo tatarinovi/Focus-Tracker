@@ -69,6 +69,14 @@ export const api = {
     }),
   showMeetingReminderWindow: (data: any) =>
     invoke("show_meeting_reminder", { data }),
+  setTimerCloseGuard: (isActive: boolean) =>
+    invoke("set_timer_close_guard", { isActive }),
+  onActiveTimerCloseBlocked: (cb: () => void) => {
+    const unlisten = listen("active-timer-close-blocked", () => cb());
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  },
   getWindowBounds: () => invoke("get_window_bounds"),
   setWindowBounds: (b: any) =>
     invoke("set_window_bounds", {

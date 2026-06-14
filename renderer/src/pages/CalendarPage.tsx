@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarEvent } from "@/data/mockData";
 import { useApp } from "@/context/AppContext";
 import { Users, Video, ExternalLink, Clock, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { toast } from "sonner";
+import { soundToast as toast } from "@/lib/appAudio";
 
 type Period = 'today' | 'tomorrow' | '3days' | 'week' | 'month';
 

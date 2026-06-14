@@ -37,11 +37,8 @@ async fn kanban_request(
     body: Option<&Value>,
 ) -> Result<Value, String> {
     let client = Client::new();
-    let safe_url = url.replace(
-        |c: char| c.is_alphabetic() && url[url.find("password").unwrap_or(0)..].contains(c),
-        "*",
-    );
-    log::info!("[Kanban] {} - {} {}", label, method, safe_url);
+    let log_url = url.split('?').next().unwrap_or(url);
+    log::info!("[Kanban] {} - {} {}", label, method, log_url);
 
     let mut req = match method {
         "POST" => client.post(url),
@@ -74,13 +71,9 @@ async fn kanban_request(
 
 #[tauri::command]
 pub async fn kanban_login(email: String, password: String) -> Result<Value, String> {
-    let url = format!(
-        "{}/api/auth/token?email={}&password={}",
-        kanban_base_url(),
-        urlencoding::encode(&email),
-        urlencoding::encode(&password)
-    );
-    kanban_request("Authorization", "POST", &url, None, None).await
+    let url = format!("{}/api/auth/token", kanban_base_url());
+    let body = serde_json::json!({ "email": email, "password": password });
+    kanban_request("Authorization", "POST", &url, None, Some(&body)).await
 }
 
 #[tauri::command]

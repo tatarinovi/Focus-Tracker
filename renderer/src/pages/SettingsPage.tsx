@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { Check, RefreshCw } from "lucide-react";
-import { toast } from "sonner";
+import { soundToast as toast } from "@/lib/appAudio";
 
-type Tab = 'general' | 'kanban' | 'calendar' | 'resonance' | 'pomodoro';
+type Tab = 'general' | 'kanban' | 'calendar' | 'resonance' | 'pomodoro' | 'audio';
 
 const ACCENT_COLORS = [
   { value: '#6366f1', label: 'Индиго' },
@@ -127,6 +127,7 @@ export default function SettingsPage() {
         ical_url: next.calendar.url,
         caldav_user: next.calendar.login,
         calendar_reminders: next.calendar.reminders,
+        audio: next.audio,
         always_on_top: next.alwaysOnTop,
         resonance: {
           login: next.resonance.login,
@@ -152,6 +153,7 @@ export default function SettingsPage() {
     { key: 'calendar', label: 'Календарь' },
     { key: 'resonance', label: 'Resonance' },
     { key: 'pomodoro', label: 'Pomodoro' },
+    { key: 'audio', label: 'Аудио' },
   ];
 
   const connectKanban = async () => {
@@ -393,6 +395,34 @@ export default function SettingsPage() {
                 <Toggle value={settings.pomodoro.visualFlash} onChange={v => dispatch({ type: 'UPDATE_SETTINGS', settings: { pomodoro: { ...settings.pomodoro, visualFlash: v } } })} />
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'audio' && (
+          <div className="max-w-lg space-y-5">
+            <h2 className="text-sm font-semibold">Аудио</h2>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-2">
+                Громкость уведомлений: {settings.audio.volume}%
+              </label>
+              <input
+                data-testid="slider-audio-volume"
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={settings.audio.volume}
+                onChange={e => dispatch({ type: 'UPDATE_SETTINGS', settings: { audio: { ...settings.audio, volume: Number(e.target.value) } } })}
+                className="w-full accent-primary"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+                <span>0%</span><span>100%</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Звуки приложения зашиты и выбираются автоматически для каждого события.
+            </p>
           </div>
         )}
 

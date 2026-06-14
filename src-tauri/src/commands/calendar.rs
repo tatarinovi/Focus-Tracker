@@ -301,7 +301,9 @@ pub async fn update_calendar_rsvp(
         "text/calendar; charset=utf-8".parse().unwrap(),
     );
     if let Some(etag_val) = etag {
-        put_headers.insert("If-Match", etag_val.parse().unwrap());
+        if let Ok(etag_header) = etag_val.parse() {
+            put_headers.insert("If-Match", etag_header);
+        }
     }
 
     let put_resp = client

@@ -6,12 +6,14 @@ import { Toaster } from "@/components/ui/sonner";
 import { Target, LayoutGrid, Calendar, Clock, Timer, FileText, Settings, Info, Bell, Minimize2, Maximize2, Coffee, Circle, Menu, X, Minus, Square } from "lucide-react";
 import { AppProvider, useApp } from "@/context/AppContext";
 import { formatSeconds, formatMinutes } from "@/data/mockData";
+import { playAppSound } from "@/lib/appAudio";
 import { useState, useEffect, useCallback } from "react";
 
 const isTauri = typeof window !== 'undefined' && !!window.tauriRuntime?.isTauri;
 const drag = { WebkitAppRegion: 'drag' } as React.CSSProperties;
 const noDrag = { WebkitAppRegion: 'no-drag' } as React.CSSProperties;
 const appLogoSrc = "/logo-mark.svg";
+const appLogoLightSrc = "/logo-mark-light.svg";
 
 function useWindowMaximized() {
   const [isMaximized, setIsMaximized] = useState(false);
@@ -107,7 +109,7 @@ function NotificationPanel() {
   const notifIcons: Record<string, string> = {
     pomodoro_done: '⏰', meeting_soon: '📅', timer_long: '⚠️',
     task_done: '✓', time_recorded: '⏱', integration_error: '✗',
-    break_time: '☕', update_available: '↑',
+    break_time: '☕', update_available: '↑', kanban_new_task: '📋',
   };
 
   return (
@@ -142,7 +144,12 @@ function NotificationPanel() {
               <button
                 key={n.id}
                 data-testid={`notif-item-${n.id}`}
-                onClick={() => dispatch({ type: 'MARK_NOTIF_READ', id: n.id })}
+                onClick={() => {
+                  dispatch({ type: 'MARK_NOTIF_READ', id: n.id });
+                  if (n.type === 'kanban_new_task') {
+                    window.location.href = '/kanban';
+                  }
+                }}
                 className={`w-full text-left px-4 py-3 border-b border-border/50 hover:bg-secondary/50 transition-colors ${!n.isRead ? 'bg-primary/5' : ''}`}
               >
                 <div className="flex items-start gap-2">
@@ -256,9 +263,10 @@ function Sidebar({ isNarrow, isOpen, onClose }: { isNarrow: boolean; isOpen: boo
   const [location] = useLocation();
   const { state } = useApp();
   const { timer } = state;
+  const logoSrc = state.settings.theme === 'light' ? appLogoLightSrc : appLogoSrc;
 
   const navItems = [
-    { href: "/", label: "Фокус", icon: Target },
+    { href: "/", label: "Главная", icon: Target },
     { href: "/kanban", label: "Kanban", icon: LayoutGrid },
     { href: "/calendar", label: "Календарь", icon: Calendar },
     { href: "/history", label: "История", icon: Clock },
@@ -273,8 +281,8 @@ function Sidebar({ isNarrow, isOpen, onClose }: { isNarrow: boolean; isOpen: boo
   const totalMinutes = todayHistory.reduce((sum, h) => sum + h.duration, 0);
 
   const integrations = [
-    { label: 'Kanban', status: 'connected' },
-    { label: 'Календарь', status: 'connected' },
+    { label: 'Kanban', status: state.config?.kanban?.token ? 'connected' : 'disconnected' },
+    { label: 'Календарь', status: state.settings.calendar.url ? 'connected' : 'disconnected' },
     { label: 'Resonance', status: state.settings.resonance.connected ? 'connected' : 'disconnected' },
   ];
 
@@ -289,7 +297,7 @@ function Sidebar({ isNarrow, isOpen, onClose }: { isNarrow: boolean; isOpen: boo
       <div className="h-[47px] px-3 border-b border-sidebar-border flex items-center">
         <div className="flex items-center justify-between px-2 w-full">
           <div className="flex items-center gap-2">
-            <img src={appLogoSrc} alt="" className="w-5 h-5 flex-shrink-0" />
+            <img src={logoSrc} alt="" className="w-5 h-5 flex-shrink-0" />
             <span className="font-semibold text-sm text-sidebar-foreground">Focus Tracker</span>
           </div>
           {isNarrow && (
@@ -396,7 +404,7 @@ function CompactMode() {
             <p className="text-[11px] font-medium truncate mb-1">{timer.activeTask.title}</p>
             <div className="font-mono text-2xl font-bold text-center text-primary leading-tight mb-2">{formatSeconds(timer.elapsed)}</div>
             <div className="flex gap-1">
-              {timer.status === 'idle' && (
+              {timer.status === 'idle' && timer.activeTask && (
                 <button onClick={() => dispatch({ type: 'RESUME_TIMER' })} className="flex-1 bg-primary text-primary-foreground rounded-md py-1 text-[11px] font-medium">Старт</button>
               )}
               {timer.status === 'running' && (
@@ -425,7 +433,11 @@ function StopDialog() {
   if (!state.stopDialogOpen) return null;
 
   const handleConfirm = () => {
-    if (!comment.trim()) { setError(true); return; }
+    if (!comment.trim()) {
+      setError(true);
+      playAppSound("error");
+      return;
+    }
     confirmStop(comment.trim());
     setComment('');
     setError(false);
@@ -566,17 +578,50 @@ function AppLayout() {
   const { state } = useApp();
   const isNarrow = useIsNarrow(1024);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [closeBlockedOpen, setCloseBlockedOpen] = useState(false);
 
   // Close sidebar when switching to wide layout
   useEffect(() => {
     if (!isNarrow) setSidebarOpen(false);
   }, [isNarrow]);
 
+  useEffect(() => {
+    const off = window.api?.onActiveTimerCloseBlocked(() => {
+      playAppSound("error");
+      setCloseBlockedOpen(true);
+    });
+    return () => off?.();
+  }, []);
+
   const openSidebar = useCallback(() => setSidebarOpen(true), []);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
+  const closeBlockedDialog = closeBlockedOpen ? (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={() => setCloseBlockedOpen(false)} />
+      <div className="relative bg-card border border-destructive/40 rounded-xl shadow-2xl w-full max-w-sm p-6">
+        <h2 className="text-base font-semibold mb-2 text-destructive">Нельзя закрыть приложение</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Сначала остановите активный таймер, чтобы время корректно записалось в историю.
+        </p>
+        <button
+          data-testid="button-close-blocked-ok"
+          onClick={() => setCloseBlockedOpen(false)}
+          className="w-full bg-primary text-primary-foreground rounded-lg py-2 text-sm font-medium hover:opacity-90 transition-opacity"
+        >
+          Понятно
+        </button>
+      </div>
+    </div>
+  ) : null;
+
   if (state.compactMode) {
-    return <CompactMode />;
+    return (
+      <>
+        <CompactMode />
+        {closeBlockedDialog}
+      </>
+    );
   }
 
   return (
@@ -593,6 +638,7 @@ function AppLayout() {
       <StopDialog />
       <SwitchDialog />
       <LunchRestoreDialog />
+      {closeBlockedDialog}
     </div>
   );
 }

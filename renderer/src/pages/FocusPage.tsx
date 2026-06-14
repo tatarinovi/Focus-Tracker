@@ -3,7 +3,8 @@ import { useApp } from "@/context/AppContext";
 import { formatSeconds, formatMinutes, PROJECT_COLORS, PRIORITY_COLORS, PRIORITY_LABELS, STATUS_LABELS, Task } from "@/data/mockData";
 import { Play, Pause, Square, CheckCircle, Pin, Coffee, Clock, Users, ExternalLink, Target, Video, CalendarClock, AlertTriangle } from "lucide-react";
 import { useLocation } from "wouter";
-import { toast } from "sonner";
+import { soundToast as toast } from "@/lib/appAudio";
+import { Spinner } from "@/components/ui/spinner";
 
 function PomodoroMini() {
   const { state, dispatch } = useApp();
@@ -380,7 +381,13 @@ export default function FocusPage() {
               <span className="text-sm font-semibold">Ближайшие созвоны</span>
             </div>
             <div className="space-y-2">
-              {todayEvents.map(event => (
+              {state.loading.calendar && (
+                <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
+                  <Spinner className="w-3.5 h-3.5" />
+                  <span>Загружаю календарь...</span>
+                </div>
+              )}
+              {!state.loading.calendar && todayEvents.map(event => (
                 <div key={event.id} className="p-2.5 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
                   <div className="flex items-start gap-2">
                     <MeetingProviderIcon provider={event.meetingProvider} />
@@ -403,7 +410,7 @@ export default function FocusPage() {
                   )}
                 </div>
               ))}
-              {todayEvents.length === 0 && (
+              {!state.loading.calendar && todayEvents.length === 0 && (
                 <p className="text-xs text-muted-foreground text-center py-2">Нет запланированных встреч</p>
               )}
             </div>

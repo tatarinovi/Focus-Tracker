@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { Note } from "@/data/mockData";
 import { Plus, Trash2, Bold, Italic, Strikethrough, Code, Heading1, Quote, List, ListOrdered, Table, CheckSquare, Eye, Edit, Columns, Link as LinkIcon } from "lucide-react";
-import { toast } from "sonner";
+import { soundToast as toast } from "@/lib/appAudio";
 import DOMPurify from "dompurify";
 
 function sanitizeHtml(html: string): string {
@@ -237,7 +237,7 @@ export default function NotesPage() {
                     if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); insertText('`', '`'); }
                     if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); toast.success('Сохранено'); }
                   }}
-                  className="flex-1 resize-none bg-transparent p-4 text-sm font-mono leading-relaxed focus:outline-none scrollbar-thin"
+                  className="flex-1 resize-none bg-transparent p-4 text-sm font-mono leading-relaxed focus:outline-none scrollbar-thin select-text"
                   placeholder="Начните писать в формате Markdown..."
                   spellCheck={false}
                 />
@@ -245,7 +245,7 @@ export default function NotesPage() {
             )}
             {(mode === 'preview' || mode === 'split') && (
               <div
-                className="flex-1 p-4 overflow-y-auto scrollbar-thin prose prose-sm max-w-none"
+                className="flex-1 p-4 overflow-y-auto scrollbar-thin prose prose-sm max-w-none select-text"
                 style={{ color: 'hsl(var(--foreground))' }}
                 onClick={handlePreviewClick}
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedNote.content) }}

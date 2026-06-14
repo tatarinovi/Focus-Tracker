@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
 import { Task, PROJECT_COLORS, PRIORITY_COLORS, PRIORITY_LABELS, STATUS_LABELS, formatMinutes, TaskStatus } from "@/data/mockData";
 import { Search, LayoutGrid, List, Pin, Star, X, Play, CheckCircle, RefreshCw } from "lucide-react";
-import { toast } from "sonner";
+import { soundToast as toast } from "@/lib/appAudio";
 
 const STATUSES: TaskStatus[] = ['Backlog', 'To Do', 'In Progress', 'Review', 'Done'];
 
@@ -62,7 +62,7 @@ function TaskDetailPanel({ task, onClose }: { task: Task; onClose: () => void })
   };
 
   return (
-    <div className="w-80 flex-shrink-0 border-l border-border bg-card flex flex-col overflow-hidden">
+    <div className="w-80 flex-shrink-0 border-l border-border bg-card flex flex-col overflow-hidden select-text">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h3 className="text-sm font-semibold">Задача</h3>
         <button onClick={onClose} className="p-1 rounded hover:bg-secondary transition-colors">

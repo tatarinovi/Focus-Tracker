@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.0.3";
+export const CURRENT_VERSION = "1.1.0";
 
 export const GITHUB_URL = "https://github.com/tatarinovi/Focus-Tracker";
 export const RELEASES_URL = "https://github.com/tatarinovi/Focus-Tracker/releases";
@@ -69,6 +69,18 @@ export const TECH_STACK = [
 ];
 
 export const CHANGELOG = [
+  {
+    version: "1.1.0",
+    date: "2026-06-14",
+    changes: [
+      "Переименован раздел «Фокус» в «Главная»",
+      "Добавлена защита закрытия приложения при активном таймере",
+      "Напоминания о созвонах показываются поверх всех окон за 5 минут до начала и сопровождаются звуком",
+      "Обновлён встроенный набор звуков и добавлена настройка общей громкости",
+      "На главной странице в блоке «Ближайшие созвоны» показывается прелоудер во время загрузки календаря",
+      "Уведомление о новых задачах в Kanban",
+    ],
+  },
   {
     version: "1.0.3",
     date: "2026-06-14",

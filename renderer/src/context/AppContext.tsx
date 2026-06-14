@@ -2,6 +2,7 @@ import { createContext, useContext, useReducer, useEffect, ReactNode, useCallbac
 import { Task, HistoryEntry, Note, AppNotification, CalendarEvent, roundToQuarter } from '@/data/mockData';
 import { loadRealCalendarEvents, loadRealHistory, loadRealKanbanTasks, loadRealNotes } from '@/lib/tauriDataApi';
 import { toast } from 'sonner';
+import { AppSoundKey, playAppSound, setAppAudioVolume, soundToast } from '@/lib/appAudio';
 
 export interface TimerState {
   status: 'idle' | 'running' | 'paused';
@@ -33,6 +34,7 @@ export interface Settings {
   compactMode: boolean;
   autostart: boolean;
   pomodoro: { focusDuration: number; breakDuration: number; sound: boolean; visualFlash: boolean };
+  audio: { volume: number };
   kanban: { apiUrl: string; email: string; password: string };
   calendar: { url: string; login: string; password: string; reminders: boolean };
   jira: { url: string; login: string; token: string; defaultProject: string; hotkey: string };
@@ -111,6 +113,7 @@ const DEFAULT_SETTINGS: Settings = {
   compactMode: false,
   autostart: false,
   pomodoro: { focusDuration: 25, breakDuration: 5, sound: true, visualFlash: true },
+  audio: { volume: 80 },
   kanban: { apiUrl: '', email: '', password: '' },
   calendar: { url: '', login: '', password: '', reminders: true },
   jira: { url: '', login: '', token: '', defaultProject: '', hotkey: '' },
@@ -179,6 +182,22 @@ const DEFAULT_POMODORO: PomodoroState = {
   focusDuration: 25, breakDuration: 5, completionCount: 0,
 };
 
+function restoreSettings(value: Partial<Settings> | undefined): Settings {
+  const savedVolume = Number(value?.audio?.volume);
+  return {
+    ...DEFAULT_SETTINGS,
+    ...(value ?? {}),
+    pomodoro: { ...DEFAULT_SETTINGS.pomodoro, ...(value?.pomodoro ?? {}) },
+    audio: {
+      volume: Number.isFinite(savedVolume) ? Math.max(0, Math.min(100, savedVolume)) : DEFAULT_SETTINGS.audio.volume,
+    },
+    kanban: { ...DEFAULT_SETTINGS.kanban, ...(value?.kanban ?? {}) },
+    calendar: { ...DEFAULT_SETTINGS.calendar, ...(value?.calendar ?? {}) },
+    jira: { ...DEFAULT_SETTINGS.jira, ...(value?.jira ?? {}) },
+    resonance: { ...DEFAULT_SETTINGS.resonance, ...(value?.resonance ?? {}) },
+  };
+}
+
 const initialState: AppState = {
   tasks: [],
   history: saved.history ?? [],
@@ -188,7 +207,7 @@ const initialState: AppState = {
   timer: restoreTimer(saved.timer),
   pomodoro: saved.pomodoro ? { ...DEFAULT_POMODORO, ...saved.pomodoro } : DEFAULT_POMODORO,
   lunch: saved.lunch ?? { active: false, startTime: null, lunchElapsed: 0, previousTask: null },
-  settings: saved.settings ?? DEFAULT_SETTINGS,
+  settings: restoreSettings(saved.settings),
   stopDialogOpen: false,
   switchDialogOpen: false,
   pendingSwitchTask: null,
@@ -425,10 +444,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const kanbanRequestRef = useRef<Promise<void> | null>(null);
   const calendarRequestRef = useRef<Promise<void> | null>(null);
   const notesRequestRef = useRef<Promise<void> | null>(null);
+  const remindedMeetingsRef = useRef<Set<string>>(new Set());
+  const lastTimerSoundStateRef = useRef({
+    status: state.timer.status,
+    taskId: state.timer.activeTask?.id ?? null,
+  });
+  const prevCompletionCountRef = useRef(state.pomodoro.completionCount);
+  const prevTaskIdsRef = useRef<Set<number>>(new Set(state.tasks.map(t => t.id)));
+
+  const playSound = useCallback((sound: AppSoundKey) => {
+    playAppSound(sound);
+  }, []);
 
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  useEffect(() => {
+    setAppAudioVolume(state.settings.audio.volume);
+  }, [state.settings.audio.volume]);
 
   useEffect(() => {
     let cancelled = false;
@@ -450,7 +484,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           settings: {
             theme: localStorage.getItem('theme') === 'light' ? 'light' : 'dark',
             accentColor: config.accent_color || DEFAULT_SETTINGS.accentColor,
-            alwaysOnTop: config.always_on_top !== false,
+            alwaysOnTop: config.always_on_top === true,
             compactMode: windowState?.compactMode === true,
             kanban: {
               apiUrl: config.kanban?.apiUrl || config.kanban?.url || '',
@@ -463,6 +497,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
               login: config.caldav_user || '',
               password: config.caldav_pass ? '********' : '',
               reminders: config.calendar_reminders !== false,
+            },
+            audio: {
+              ...DEFAULT_SETTINGS.audio,
+              ...stateRef.current.settings.audio,
+              ...(config.audio || {}),
             },
             jira: { ...DEFAULT_SETTINGS.jira, url: config.jira_url || '', login: config.jira_user || '', token: '', defaultProject: config.jira_project || '', hotkey: config.jira_hotkey || '' },
             resonance: {
@@ -524,6 +563,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [state.timer.status]);
 
   useEffect(() => {
+    const previous = lastTimerSoundStateRef.current;
+    const current = {
+      status: state.timer.status,
+      taskId: state.timer.activeTask?.id ?? null,
+    };
+
+    const started =
+      previous.status === 'idle' &&
+      current.status === 'running' &&
+      current.taskId !== null;
+    const switched =
+      current.status === 'running' &&
+      previous.taskId !== null &&
+      current.taskId !== null &&
+      previous.taskId !== current.taskId;
+    const stopped = previous.status !== 'idle' && current.status === 'idle';
+
+    if (started || switched) playSound('timerStart');
+    if (stopped) playSound('timerStop');
+
+    lastTimerSoundStateRef.current = current;
+  }, [playSound, state.timer.activeTask?.id, state.timer.status]);
+
+  useEffect(() => {
     if (!state.pomodoro.isRunning) return;
     const interval = setInterval(() => dispatch({ type: 'POMODORO_TICK' }), 1000);
     return () => clearInterval(interval);
@@ -537,23 +600,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (state.pomodoro.completionCount === 0) return;
+    if (state.pomodoro.completionCount === prevCompletionCountRef.current) return;
+    prevCompletionCountRef.current = state.pomodoro.completionCount;
     const completedPhase = state.pomodoro.phase === 'focus' ? 'break' : 'focus';
     const msg = completedPhase === 'focus'
       ? 'Pomodoro завершён — время сделать перерыв'
       : 'Перерыв закончился — время работать';
+    playSound(completedPhase === 'focus' ? 'pomodoroBreak' : 'pomodoroFocus');
     toast.info(msg);
-  }, [state.pomodoro.completionCount]);
+  }, [playSound, state.pomodoro.completionCount, state.pomodoro.phase]);
 
   useEffect(() => {
     if (!state.settings.calendar.reminders) return;
     const check = () => {
       const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
       const nowMins = now.getHours() * 60 + now.getMinutes();
       const ts = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       state.calendarEvents.forEach(event => {
+        if (event.date !== today) return;
         const [h, m] = event.start.split(':').map(Number);
+        if (!Number.isFinite(h) || !Number.isFinite(m)) return;
         const diff = (h * 60 + m) - nowMins;
         if (diff === 5) {
+          const reminderKey = `${event.date}:${event.id}:${event.start}`;
+          if (remindedMeetingsRef.current.has(reminderKey)) return;
+          remindedMeetingsRef.current.add(reminderKey);
+
+          window.api?.showMeetingReminderWindow({
+            name: event.title,
+            time: event.start,
+            url: event.meetingUrl,
+            theme: state.settings.theme === 'light' ? 'light' : 'dark',
+          }).catch(() => {});
+          playSound('meetingReminder');
+          playSound('notification');
+
           toast.info(`Через 5 минут: ${event.title}`);
           dispatch({
             type: 'ADD_NOTIF',
@@ -565,7 +647,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const id = setInterval(check, 60_000);
     check();
     return () => clearInterval(id);
-  }, [state.calendarEvents, state.settings.calendar.reminders]);
+  }, [
+    state.calendarEvents,
+    state.settings.audio.volume,
+    state.settings.calendar.reminders,
+    state.settings.theme,
+    playSound,
+  ]);
+
+  useEffect(() => {
+    window.api?.setTimerCloseGuard(state.timer.status !== 'idle').catch(() => {});
+  }, [state.timer.status]);
+
+  useEffect(() => {
+    prevTaskIdsRef.current = new Set(state.tasks.map(t => t.id));
+  }, [state.tasks]);
+
+  useEffect(() => {
+    const token = stateRef.current.config?.kanban?.token;
+    if (!token || !window.api) return;
+
+    const checkForNewTasks = async () => {
+      try {
+        const config = stateRef.current.config || await window.api!.loadConfig();
+        const tasks = await loadRealKanbanTasks(config);
+        const prevIds = prevTaskIdsRef.current;
+        const newTasks = tasks.filter(t => !prevIds.has(t.id));
+        if (newTasks.length > 0) {
+          for (const task of newTasks) {
+            const ts = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            dispatch({
+              type: 'ADD_NOTIF',
+              notif: { type: 'kanban_new_task', text: `Новая задача: ${task.title}`, timestamp: ts, isRead: false, taskId: task.id },
+            });
+          }
+          playSound('notification');
+        }
+        dispatch({ type: 'SET_TASKS', tasks });
+      } catch {}
+    };
+
+    const id = setInterval(checkForNewTasks, 15_000);
+    return () => clearInterval(id);
+  }, [state.config?.kanban?.token]);
 
   const startTimer = useCallback((task: Task) => {
     if (state.timer.status !== 'idle') {
@@ -620,6 +744,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const activeTask = state.timer.activeTask;
     persistTaskWork(activeTask, state.timer.elapsed, comment).catch(() => {});
     dispatch({ type: 'CONFIRM_STOP', comment });
+    playSound('notification');
     toast.success('Время записано в историю');
   }, [persistTaskWork, state.timer.activeTask, state.timer.elapsed]);
   const cancelStop = useCallback(() => dispatch({ type: 'CLOSE_STOP_DIALOG' }), []);
@@ -636,11 +761,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }
     dispatch({ type: 'CONFIRM_SWITCH', action, comment });
-    if (action !== 'cancel') toast.success('Задача переключена');
+    if (action !== 'cancel') {
+      playSound('notification');
+      toast.success('Задача переключена');
+    }
   }, [persistTaskWork, state.config, state.pendingSwitchTask, state.timer.activeTask, state.timer.elapsed]);
   const startLunch = useCallback(() => {
     dispatch({ type: 'START_LUNCH' });
-    toast.info('Ушёл на обед — таймер на паузе');
+    soundToast.info('Ушёл на обед — таймер на паузе');
   }, []);
   const endLunch = useCallback(() => {
     dispatch({ type: 'END_LUNCH' });
@@ -662,9 +790,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const refreshedConfig = await window.api!.loadConfig().catch(() => config);
         dispatch({ type: 'SET_CONFIG', config: refreshedConfig });
         dispatch({ type: 'SET_TASKS', tasks });
-        if (notify) toast.success(`Kanban обновлён: ${tasks.length} задач`);
+        if (notify) soundToast.success(`Kanban обновлён: ${tasks.length} задач`);
       } catch (error: any) {
-        toast.error(error?.message || 'Не удалось загрузить Kanban');
+        soundToast.error(error?.message || 'Не удалось загрузить Kanban');
       } finally {
         dispatch({ type: 'SET_LOADING', key: 'kanban', value: false });
         kanbanRequestRef.current = null;

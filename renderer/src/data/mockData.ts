@@ -62,6 +62,7 @@ export interface AppNotification {
   text: string;
   timestamp: string;
   isRead: boolean;
+  taskId?: number;
 }
 
 export function formatSeconds(totalSeconds: number): string {

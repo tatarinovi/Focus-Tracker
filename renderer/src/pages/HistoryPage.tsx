@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { PROJECT_COLORS, formatMinutes } from "@/data/mockData";
 import { Trash2, Edit2, Check, X, Download } from "lucide-react";
-import { toast } from "sonner";
+import { soundToast as toast } from "@/lib/appAudio";
 
 const WORK_START = 8;
 const WORK_END = 20;

@@ -1,4 +1,29 @@
+use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
+
+pub struct TimerCloseGuardState {
+    pub is_timer_active: Mutex<bool>,
+}
+
+impl Default for TimerCloseGuardState {
+    fn default() -> Self {
+        Self {
+            is_timer_active: Mutex::new(false),
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn set_timer_close_guard(
+    state: tauri::State<'_, TimerCloseGuardState>,
+    is_active: bool,
+) -> Result<(), String> {
+    *state
+        .is_timer_active
+        .lock()
+        .map_err(|e| e.to_string())? = is_active;
+    Ok(())
+}
 
 #[tauri::command]
 pub async fn window_minimize(app: AppHandle) -> Result<(), String> {
@@ -49,9 +74,9 @@ pub async fn set_always_on_top(app: AppHandle, value: bool) -> Result<bool, Stri
 #[tauri::command]
 pub async fn is_always_on_top(app: AppHandle) -> Result<bool, String> {
     if let Some(window) = app.get_webview_window("main") {
-        return Ok(window.is_always_on_top().unwrap_or(true));
+        return Ok(window.is_always_on_top().unwrap_or(false));
     }
-    Ok(true)
+    Ok(false)
 }
 
 #[tauri::command]

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { RefreshCw, ExternalLink, Check } from "lucide-react";
-import { toast } from "sonner";
+import { soundToast as toast } from "@/lib/appAudio";
 import { CHANGELOG } from "@/content/site";
 
 type UpdatePhase = "idle" | "checking" | "downloading" | "installing" | "done";

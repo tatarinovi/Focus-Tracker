@@ -40,6 +40,8 @@ declare global {
     fetchCalendarCalDav: (url: string) => Promise<any>;
     updateCalendarRsvp: (data: { icsUrl: string; newStatus: string }) => Promise<any>;
     showMeetingReminderWindow: (data: unknown) => Promise<any>;
+    setTimerCloseGuard: (isActive: boolean) => Promise<void>;
+    onActiveTimerCloseBlocked: (cb: () => void) => () => void;
     getWindowBounds: () => Promise<{ x: number; y: number; width: number; height: number }>;
     setWindowBounds: (bounds: Partial<{ x: number; y: number; width: number; height: number }>) => Promise<void>;
     loadWindowState: () => Promise<Record<string, any>>;
