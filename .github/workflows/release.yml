@@ -74,7 +74,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Focus Tracker ${{ github.ref_name }}'
-          releaseBody: 'See changelog'
+          releaseBody: 'See changelog on the [site](https://tatarinovi.github.io/Focus-Tracker/).'
           releaseDraft: false
           prerelease: ${{ contains(github.ref, 'beta') }}
           args: ${{ matrix.args }}
