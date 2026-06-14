@@ -23,17 +23,17 @@ function platformKeys(file) {
   const normalized = file.replace(/\\/g, "/").toLowerCase();
   if (runnerOs === "Windows") {
     if (normalized.includes("/nsis/") || normalized.endsWith(".exe")) {
-      return ["windows-x86_64-nsis"];
+      return ["windows-x86_64-nsis", "windows-x86_64"];
     }
     if (normalized.includes("/msi/") || normalized.endsWith(".msi")) {
-      return ["windows-x86_64-msi"];
+      return ["windows-x86_64-msi", "windows-x86_64"];
     }
     return ["windows-x86_64"];
   }
   if (runnerOs === "Linux") {
-    if (normalized.endsWith(".appimage")) return ["linux-x86_64-appimage"];
-    if (normalized.endsWith(".deb")) return ["linux-x86_64-deb"];
-    if (normalized.endsWith(".rpm")) return ["linux-x86_64-rpm"];
+    if (normalized.endsWith(".appimage")) return ["linux-x86_64-appimage", "linux-x86_64"];
+    if (normalized.endsWith(".deb")) return ["linux-x86_64-deb", "linux-x86_64"];
+    if (normalized.endsWith(".rpm")) return ["linux-x86_64-rpm", "linux-x86_64"];
     return ["linux-x86_64"];
   }
   if (runnerOs === "macOS" && normalized.includes("universal")) {

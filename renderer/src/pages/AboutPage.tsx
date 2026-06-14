@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Target, RefreshCw, ExternalLink, Check } from "lucide-react";
+import { RefreshCw, ExternalLink, Check } from "lucide-react";
 import { toast } from "sonner";
 import { CHANGELOG } from "@/content/site";
 
@@ -116,9 +116,11 @@ export default function AboutPage() {
     <div className="p-6 max-w-2xl space-y-6">
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg">
-            <Target className="w-9 h-9 text-primary-foreground" />
-          </div>
+          <img
+            src="/logo-square-dark.svg"
+            alt=""
+            className="w-16 h-16 rounded-2xl shadow-lg"
+          />
           <div>
             <h1 className="text-xl font-bold">Focus Tracker</h1>
             <p className="text-sm text-muted-foreground">Версия {appVersion}</p>

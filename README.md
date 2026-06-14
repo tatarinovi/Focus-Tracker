@@ -1,3 +1,5 @@
+![Focus Tracker banner](assets/Banner.png)
+
 # ⏱ Focus Tracker
 
 Десктопное Tauri-приложение для персонального тайм-трекинга с интеграциями в Kanban, Яндекс Календарь, Jira и Telegram.

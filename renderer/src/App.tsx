@@ -11,6 +11,7 @@ import { useState, useEffect, useCallback } from "react";
 const isTauri = typeof window !== 'undefined' && !!window.tauriRuntime?.isTauri;
 const drag = { WebkitAppRegion: 'drag' } as React.CSSProperties;
 const noDrag = { WebkitAppRegion: 'no-drag' } as React.CSSProperties;
+const appLogoSrc = "/logo-square-dark.svg";
 
 function useWindowMaximized() {
   const [isMaximized, setIsMaximized] = useState(false);
@@ -288,7 +289,7 @@ function Sidebar({ isNarrow, isOpen, onClose }: { isNarrow: boolean; isOpen: boo
       <div className="h-[47px] px-3 border-b border-sidebar-border flex items-center">
         <div className="flex items-center justify-between px-2 w-full">
           <div className="flex items-center gap-2">
-            <Target className="w-5 h-5 text-primary" />
+            <img src={appLogoSrc} alt="" className="w-5 h-5 rounded-[5px] flex-shrink-0" />
             <span className="font-semibold text-sm text-sidebar-foreground">Focus Tracker</span>
           </div>
           {isNarrow && (

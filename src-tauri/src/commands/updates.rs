@@ -120,7 +120,10 @@ async fn install_update_inner(
     let check_result = tokio::time::timeout(CHECK_TIMEOUT, check_update_inner(app, channel)).await;
     let check = match check_result {
         Ok(Ok(check)) => check,
-        Ok(Err(error)) => return Err(error),
+        Ok(Err(error)) => {
+            eprintln!("[updater] check_update_inner failed: {error}");
+            return Err(error);
+        }
         Err(_) => return Err("timeout: check".to_string()),
     };
 
@@ -154,12 +157,21 @@ async fn install_update_inner(
         }));
     }
 
-    let updater = updater_for_channel(app, channel).await?;
+    let updater = updater_for_channel(app, channel).await.map_err(|e| {
+        eprintln!("[updater] updater_for_channel failed: {e}");
+        e
+    })?;
     let update = updater
         .check()
         .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "Update is no longer available".to_string())?;
+        .map_err(|e| {
+            eprintln!("[updater] second check() failed: {e}");
+            e.to_string()
+        })?
+        .ok_or_else(|| {
+            eprintln!("[updater] second check() returned None");
+            "Update is no longer available".to_string()
+        })?;
 
     emit_progress(app, 0);
     emit_status(
@@ -390,6 +402,7 @@ pub async fn startup_flow(
             }
         }
         Err(error) => {
+            eprintln!("[updater] startup_flow install_update_inner error: {error}");
             if error == "timeout: check" {
                 emit_status(
                     &app,
