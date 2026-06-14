@@ -93,6 +93,9 @@ pub async fn destroy_reminder(app: AppHandle, state: State<'_, ReminderState>) -
     if let Some(window) = app.get_webview_window("reminder") {
         window.close().map_err(|e| e.to_string())?;
     }
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.emit("reminder-closed", ());
+    }
     Ok(())
 }
 
@@ -122,6 +125,9 @@ pub async fn reminder_join_meeting(
     // Close reminder window
     if let Some(window) = app.get_webview_window("reminder") {
         window.close().map_err(|e| e.to_string())?;
+    }
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.emit("reminder-closed", ());
     }
 
     Ok(true)

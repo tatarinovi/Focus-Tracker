@@ -1,5 +1,6 @@
 const STARTUP_GUARD_MS = 80000;
 const message = document.getElementById("message");
+const statusText = document.getElementById("status-text");
 const bar = document.getElementById("bar");
 const fill = document.getElementById("fill");
 const actions = document.getElementById("actions");
@@ -17,6 +18,10 @@ let channel = "stable";
 
 function setMessage(next) {
   message.textContent = next;
+}
+
+function setStatus(next) {
+  statusText.textContent = next;
 }
 
 function setProgress(percent) {
@@ -57,6 +62,7 @@ async function loadChannel() {
 async function start() {
   if (!invoke || !listen) {
     setMessage("Не удалось запустить служебный слой приложения.");
+    setStatus("Ошибка запуска");
     showUpdateActions();
     return;
   }
@@ -64,6 +70,7 @@ async function start() {
   actions.style.display = "none";
   setIndeterminate();
   setMessage("Проверяем обновления...");
+  setStatus("Загрузка компонентов");
   startupDone = false;
   await loadChannel();
 
@@ -76,11 +83,13 @@ async function start() {
         migration.error ||
           "Не удалось подготовить локальные данные. Пользовательские данные не перезаписаны."
       );
+      setStatus("Ошибка миграции");
       showMigrationActions();
     }
   } catch {
     startupDone = true;
     setMessage("Не удалось завершить запуск. Можно открыть текущую версию вручную.");
+    setStatus("Ошибка запуска");
     showUpdateActions();
   }
 }
@@ -94,7 +103,17 @@ listen?.("update-status", (event) => {
   if (payload.message) {
     setMessage(payload.message);
   }
-  if (["checking", "installing", "relaunching", "migrating"].includes(payload.phase)) {
+  if (payload.phase === "checking") {
+    setStatus("Проверка обновлений");
+    setIndeterminate();
+  } else if (payload.phase === "installing") {
+    setStatus("Установка обновления");
+    setIndeterminate();
+  } else if (payload.phase === "relaunching") {
+    setStatus("Перезапуск");
+    setIndeterminate();
+  } else if (payload.phase === "migrating") {
+    setStatus("Миграция данных");
     setIndeterminate();
   }
 });
@@ -118,6 +137,7 @@ closeButton.addEventListener("click", async () => {
 setTimeout(async () => {
   if (!startupDone) {
     setMessage("Запуск занял слишком много времени, открываем текущую версию.");
+    setStatus("Таймаут запуска");
     try {
       await invoke("finish_startup");
     } catch {

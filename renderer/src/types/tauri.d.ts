@@ -42,6 +42,7 @@ declare global {
     showMeetingReminderWindow: (data: unknown) => Promise<any>;
     setTimerCloseGuard: (isActive: boolean) => Promise<void>;
     onActiveTimerCloseBlocked: (cb: () => void) => () => void;
+    onReminderClosed: (cb: () => void) => () => void;
     getWindowBounds: () => Promise<{ x: number; y: number; width: number; height: number }>;
     setWindowBounds: (bounds: Partial<{ x: number; y: number; width: number; height: number }>) => Promise<void>;
     loadWindowState: () => Promise<Record<string, any>>;

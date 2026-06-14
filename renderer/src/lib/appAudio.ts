@@ -27,6 +27,13 @@ export function playAppSound(sound: AppSoundKey) {
   void audio.play().catch(() => {});
 }
 
+export function stopAllSounds() {
+  for (const audio of audioCache.values()) {
+    audio.pause();
+    audio.currentTime = 0;
+  }
+}
+
 export const soundToast = {
   success: (...args: Parameters<typeof sonnerToast.success>) => {
     return sonnerToast.success(...args);

@@ -2,7 +2,7 @@ import { createContext, useContext, useReducer, useEffect, ReactNode, useCallbac
 import { Task, HistoryEntry, Note, AppNotification, CalendarEvent, roundToQuarter } from '@/data/mockData';
 import { loadRealCalendarEvents, loadRealHistory, loadRealKanbanTasks, loadRealNotes } from '@/lib/tauriDataApi';
 import { toast } from 'sonner';
-import { AppSoundKey, playAppSound, setAppAudioVolume, soundToast } from '@/lib/appAudio';
+import { AppSoundKey, playAppSound, setAppAudioVolume, soundToast, stopAllSounds } from '@/lib/appAudio';
 
 export interface TimerState {
   status: 'idle' | 'running' | 'paused';
@@ -659,6 +659,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     window.api?.setTimerCloseGuard(state.timer.status !== 'idle').catch(() => {});
   }, [state.timer.status]);
+
+  useEffect(() => {
+    const off = window.api?.onReminderClosed?.(() => {
+      stopAllSounds();
+    });
+    return () => off?.();
+  }, []);
 
   useEffect(() => {
     prevTaskIdsRef.current = new Set(state.tasks.map(t => t.id));

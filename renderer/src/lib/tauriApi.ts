@@ -77,6 +77,12 @@ export const api = {
       unlisten.then((fn) => fn());
     };
   },
+  onReminderClosed: (cb: () => void) => {
+    const unlisten = listen("reminder-closed", () => cb());
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  },
   getWindowBounds: () => invoke("get_window_bounds"),
   setWindowBounds: (b: any) =>
     invoke("set_window_bounds", {
