@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useApp } from "@/context/AppContext";
-import { toast } from "sonner";
+import { soundToast as toast } from "@/lib/appAudio";
 import {
   ExternalLink,
   Loader2,
-  Plus,
   Send,
 } from "lucide-react";
 
@@ -28,11 +27,7 @@ interface JiraVersion {
   released?: boolean;
 }
 
-interface JiraLabel {
-  label: string;
-}
 
-const ISSUE_TYPES = ["Task", "Bug", "Story", "Epic", "Sub-task"];
 const PRIORITIES = ["Highest", "High", "Medium", "Low", "Lowest"];
 
 export default function JiraPage() {
@@ -50,6 +45,7 @@ export default function JiraPage() {
   const [affectedVersion, setAffectedVersion] = useState("");
   const [fixVersion, setFixVersion] = useState("");
 
+  const [issueTypes, setIssueTypes] = useState<JiraCreateMeta["issueTypes"]>([]);
   const [epics, setEpics] = useState<JiraEpic[]>([]);
   const [availableComponents, setAvailableComponents] = useState<JiraComponent[]>([]);
   const [versions, setVersions] = useState<JiraVersion[]>([]);
@@ -71,8 +67,11 @@ export default function JiraPage() {
 
       const meta = metaRes as JiraCreateMeta;
       if (meta.issueTypes?.length > 0) {
+        setIssueTypes(meta.issueTypes);
         const names = meta.issueTypes.map((t) => t.name);
         setIssueType((prev) => (names.includes(prev) ? prev : names[0]));
+      } else {
+        setIssueTypes([]);
       }
 
       setEpics((epicsRes as JiraEpic[]) || []);
@@ -222,9 +221,9 @@ export default function JiraPage() {
                     onChange={(e) => setIssueType(e.target.value)}
                     className={inputClass}
                   >
-                    {ISSUE_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
+                    {issueTypes.map((t) => (
+                      <option key={t.id} value={t.name}>
+                        {t.name}
                       </option>
                     ))}
                   </select>
