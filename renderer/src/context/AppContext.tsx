@@ -37,7 +37,7 @@ export interface Settings {
   audio: { volume: number };
   kanban: { apiUrl: string; email: string; password: string };
   calendar: { url: string; login: string; password: string; reminders: boolean };
-  jira: { url: string; login: string; token: string; defaultProject: string };
+  jira: { url: string; login: string; token: string; password: string; defaultProject: string };
   resonance: { login: string; password: string; connected: boolean; lastChecked: string };
 }
 
@@ -116,7 +116,7 @@ const DEFAULT_SETTINGS: Settings = {
   audio: { volume: 80 },
   kanban: { apiUrl: '', email: '', password: '' },
   calendar: { url: '', login: '', password: '', reminders: true },
-  jira: { url: '', login: '', token: '', defaultProject: '' },
+  jira: { url: '', login: '', token: '', password: '', defaultProject: '' },
   resonance: { login: '', password: '', connected: false, lastChecked: '' },
 };
 
@@ -503,7 +503,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               ...stateRef.current.settings.audio,
               ...(config.audio || {}),
             },
-            jira: { ...DEFAULT_SETTINGS.jira, url: config.jira_url || '', login: config.jira_user || '', token: '', defaultProject: config.jira_project || '' },
+            jira: { ...DEFAULT_SETTINGS.jira, url: config.jira_url || '', login: config.jira_user || '', token: '', password: '', defaultProject: config.jira_project || '' },
             resonance: {
               ...DEFAULT_SETTINGS.resonance,
               login: config.resonance?.login || '',

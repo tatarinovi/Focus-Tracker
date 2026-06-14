@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { RefreshCw, ExternalLink, Check } from "lucide-react";
 import { soundToast as toast } from "@/lib/appAudio";
 import { CHANGELOG } from "@/content/site";
+import { useApp } from "@/context/AppContext";
 
 type UpdatePhase = "idle" | "checking" | "downloading" | "installing" | "done";
 type UpdateChannel = "stable" | "beta";
 
 export default function AboutPage() {
+  const { state } = useApp();
   const [channel, setChannel] = useState<UpdateChannel>("stable");
   const [updatePhase, setUpdatePhase] = useState<UpdatePhase>("idle");
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -117,7 +119,7 @@ export default function AboutPage() {
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-center gap-4">
           <img
-            src="/logo-mark.svg"
+            src={state.settings.theme === 'light' ? '/logo-mark-light.svg' : '/logo-mark.svg'}
             alt=""
             className="w-16 h-16"
           />

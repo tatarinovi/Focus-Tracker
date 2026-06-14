@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.1.1";
+export const CURRENT_VERSION = "1.2.0";
 
 export const GITHUB_URL = "https://github.com/tatarinovi/Focus-Tracker";
 export const RELEASES_URL = "https://github.com/tatarinovi/Focus-Tracker/releases";
@@ -69,6 +69,14 @@ export const TECH_STACK = [
 ];
 
 export const CHANGELOG = [
+  {
+    version: "1.2.0",
+    date: "2026-06-14",
+    changes: [
+      "Добавлена вкладка «Jira» с формой создания задач",
+      "Добавлена настройка подключения к Jira (URL, логин, пароль, проект по умолчанию)",
+    ],
+  },
   {
     version: "1.1.1",
     date: "2026-06-14",

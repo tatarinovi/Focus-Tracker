@@ -10,6 +10,8 @@ renderer-dist/
 src-tauri/target/
 src-tauri/gen/
 .mimocode/
+docs/
+AGENTS.md
 
 
 # Electron

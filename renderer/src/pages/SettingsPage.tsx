@@ -3,7 +3,7 @@ import { useApp } from "@/context/AppContext";
 import { Check, RefreshCw } from "lucide-react";
 import { soundToast as toast } from "@/lib/appAudio";
 
-type Tab = 'general' | 'kanban' | 'calendar' | 'resonance' | 'pomodoro' | 'audio';
+type Tab = 'general' | 'kanban' | 'calendar' | 'jira' | 'resonance' | 'pomodoro' | 'audio';
 
 const ACCENT_COLORS = [
   { value: '#6366f1', label: 'Индиго' },
@@ -84,9 +84,10 @@ export default function SettingsPage() {
     let cancelled = false;
     async function hydrateDeferredSettings() {
       const config = state.config || await window.api!.loadConfig().catch((): Record<string, any> => ({}));
-      const [calendarCreds, kanbanBaseUrl] = await Promise.all([
+      const [calendarCreds, kanbanBaseUrl, jiraCreds] = await Promise.all([
         window.api!.getCalendarCredentials?.().catch(() => ({ user: '', pass: '' })),
         window.api!.getKanbanBaseUrl?.().catch(() => ''),
+        window.api!.getJiraCredentials?.().catch(() => ({ pass: '' })),
       ]);
       if (cancelled) return;
       const kanbanUser = config.kanban?.userInfo?.data || config.kanban?.userInfo || {};
@@ -103,6 +104,13 @@ export default function SettingsPage() {
             ...settings.calendar,
             login: calendarCreds?.user || config.caldav_user || settings.calendar.login,
             password: calendarCreds?.pass ? '********' : (config.caldav_pass ? '********' : settings.calendar.password),
+          },
+          jira: {
+            ...settings.jira,
+            url: config.jira_url || settings.jira.url,
+            login: config.jira_user || settings.jira.login,
+            password: jiraCreds?.pass ? '********' : settings.jira.password,
+            defaultProject: config.jira_project || settings.jira.defaultProject,
           },
         },
       });
@@ -127,6 +135,9 @@ export default function SettingsPage() {
         ical_url: next.calendar.url,
         caldav_user: next.calendar.login,
         calendar_reminders: next.calendar.reminders,
+        jira_url: next.jira.url,
+        jira_user: next.jira.login,
+        jira_project: next.jira.defaultProject,
         audio: next.audio,
         always_on_top: next.alwaysOnTop,
         resonance: {
@@ -143,6 +154,9 @@ export default function SettingsPage() {
       if (next.calendar.password && next.calendar.password !== '********') {
         await window.api.saveCalendarCredentials({ user: next.calendar.login, pass: next.calendar.password });
       }
+      if (next.jira.password && next.jira.password !== '********') {
+        await window.api.saveJiraCredentials({ pass: next.jira.password });
+      }
     }
     toast.success('Настройки сохранены');
   };
@@ -151,6 +165,7 @@ export default function SettingsPage() {
     { key: 'general', label: 'Общие' },
     { key: 'kanban', label: 'Kanban' },
     { key: 'calendar', label: 'Календарь' },
+    { key: 'jira', label: 'Jira' },
     { key: 'resonance', label: 'Resonance' },
     { key: 'pomodoro', label: 'Pomodoro' },
     { key: 'audio', label: 'Аудио' },
@@ -295,6 +310,24 @@ export default function SettingsPage() {
             <InputField label="Email" value={settings.kanban.email} onChange={v => dispatch({ type: 'UPDATE_SETTINGS', settings: { kanban: { ...settings.kanban, email: v } } })} type="email" />
             <InputField label="Пароль" value={settings.kanban.password} onChange={v => dispatch({ type: 'UPDATE_SETTINGS', settings: { kanban: { ...settings.kanban, password: v } } })} type="password" placeholder="Введите пароль..." />
             <ConnectButton onTest={connectKanban} />
+          </div>
+        )}
+
+        {activeTab === 'jira' && (
+          <div className="max-w-lg space-y-4">
+            <h2 className="text-sm font-semibold">Подключение к Jira</h2>
+            <InputField label="URL Jira" value={settings.jira.url} onChange={v => dispatch({ type: 'UPDATE_SETTINGS', settings: { jira: { ...settings.jira, url: v } } })} placeholder="https://jira.company.ru" />
+            <InputField label="Логин" value={settings.jira.login} onChange={v => dispatch({ type: 'UPDATE_SETTINGS', settings: { jira: { ...settings.jira, login: v } } })} />
+            <InputField label="Пароль" value={settings.jira.password || ''} onChange={v => dispatch({ type: 'UPDATE_SETTINGS', settings: { jira: { ...settings.jira, password: v } } })} type="password" placeholder="Введите пароль..." />
+            <InputField label="Проект по умолчанию" value={settings.jira.defaultProject} onChange={v => dispatch({ type: 'UPDATE_SETTINGS', settings: { jira: { ...settings.jira, defaultProject: v.toUpperCase() } } })} placeholder="PROJ" />
+            <ConnectButton onTest={async () => {
+              if (!window.api || !settings.jira.url || !settings.jira.login) return false;
+              if (settings.jira.password && settings.jira.password !== '********') {
+                await window.api.saveJiraCredentials({ pass: settings.jira.password });
+              }
+              const res = await window.api.getJiraCreateMeta(settings.jira.defaultProject || 'TEST');
+              return Boolean(res?.success);
+            }} />
           </div>
         )}
 
