@@ -117,9 +117,9 @@ export default function AboutPage() {
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-center gap-4">
           <img
-            src="/logo-square-dark.svg"
+            src="/logo-mark.svg"
             alt=""
-            className="w-16 h-16 rounded-2xl shadow-lg"
+            className="w-16 h-16"
           />
           <div>
             <h1 className="text-xl font-bold">Focus Tracker</h1>

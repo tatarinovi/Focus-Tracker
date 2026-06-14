@@ -55,7 +55,7 @@ for (const signaturePath of signatures) {
   const artifactPath = signaturePath.slice(0, -4);
   if (!fs.existsSync(artifactPath)) continue;
 
-  const fileName = path.basename(artifactPath);
+  const fileName = path.basename(artifactPath).replace(/ /g, ".");
   const entry = {
     signature: fs.readFileSync(signaturePath, "utf8").trim(),
     url: `https://github.com/${repo}/releases/download/${tag}/${encodeURIComponent(fileName)}`,

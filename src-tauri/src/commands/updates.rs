@@ -2,6 +2,8 @@ use crate::commands::storage::run_storage_migrations_internal;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashSet;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -13,6 +15,22 @@ const DEV_SPLASH_DELAY: Duration = Duration::from_millis(450);
 const STARTUP_NOTICE_DELAY: Duration = Duration::from_millis(1200);
 const STABLE_ENDPOINT: &str = "https://tatarinovi.github.io/Focus-Tracker/updates/stable.json";
 const BETA_ENDPOINT: &str = "https://tatarinovi.github.io/Focus-Tracker/updates/beta.json";
+
+fn log_update(msg: &str) {
+    let path = std::env::temp_dir().join("focus-tracker-updater.log");
+    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
+        let _ = writeln!(f, "[{}] {msg}", chrono_wrapper());
+    }
+}
+
+fn chrono_wrapper() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    format!("{secs}")
+}
 
 #[derive(Default)]
 pub struct UpdaterState {
@@ -94,15 +112,24 @@ async fn updater_for_channel(
 }
 
 async fn check_update_inner(app: &AppHandle, channel: &str) -> Result<UpdateCheck, String> {
+    log_update(&format!("check_update_inner: channel={channel}"));
     let updater = updater_for_channel(app, channel).await?;
-    let update = updater.check().await.map_err(|e| e.to_string())?;
+    log_update("check_update_inner: updater built, calling check()");
+    let update = updater.check().await.map_err(|e| {
+        log_update(&format!("check_update_inner: check() failed: {e}"));
+        e.to_string()
+    })?;
 
+    log_update(&format!("check_update_inner: check() returned Some={}", update.is_some()));
     Ok(match update {
-        Some(update) => UpdateCheck {
-            has_update: true,
-            version: Some(update.version.to_string()),
-            notes: update.body.clone(),
-        },
+        Some(update) => {
+            log_update(&format!("check_update_inner: found version={}", update.version));
+            UpdateCheck {
+                has_update: true,
+                version: Some(update.version.to_string()),
+                notes: update.body.clone(),
+            }
+        }
         None => UpdateCheck {
             has_update: false,
             version: None,
@@ -121,7 +148,7 @@ async fn install_update_inner(
     let check = match check_result {
         Ok(Ok(check)) => check,
         Ok(Err(error)) => {
-            eprintln!("[updater] check_update_inner failed: {error}");
+            log_update(&format!("check_update_inner failed: {error}"));
             return Err(error);
         }
         Err(_) => return Err("timeout: check".to_string()),
@@ -158,18 +185,18 @@ async fn install_update_inner(
     }
 
     let updater = updater_for_channel(app, channel).await.map_err(|e| {
-        eprintln!("[updater] updater_for_channel failed: {e}");
+        log_update(&format!("updater_for_channel failed: {e}"));
         e
     })?;
     let update = updater
         .check()
         .await
         .map_err(|e| {
-            eprintln!("[updater] second check() failed: {e}");
+            log_update(&format!("second check() failed: {e}"));
             e.to_string()
         })?
         .ok_or_else(|| {
-            eprintln!("[updater] second check() returned None");
+            log_update("second check() returned None");
             "Update is no longer available".to_string()
         })?;
 
@@ -290,16 +317,21 @@ pub async fn check_updates(app: AppHandle, channel: String) -> Result<Value, Str
     }
 
     let channel = normalize_channel(Some(channel));
+    log_update(&format!("check_updates called, channel={channel}, current={}", env!("CARGO_PKG_VERSION")));
     emit_status(&app, "checking", "Проверяем наличие обновлений...", None);
     match tokio::time::timeout(CHECK_TIMEOUT, check_update_inner(&app, &channel)).await {
-        Ok(Ok(check)) => Ok(serde_json::json!({
-            "success": true,
-            "hasUpdate": check.has_update,
-            "current": env!("CARGO_PKG_VERSION"),
-            "version": check.version,
-            "releaseNotes": check.notes
-        })),
+        Ok(Ok(check)) => {
+            log_update(&format!("check_updates result: hasUpdate={}, version={:?}", check.has_update, check.version));
+            Ok(serde_json::json!({
+                "success": true,
+                "hasUpdate": check.has_update,
+                "current": env!("CARGO_PKG_VERSION"),
+                "version": check.version,
+                "releaseNotes": check.notes
+            }))
+        }
         Ok(Err(error)) => {
+            log_update(&format!("check_updates error: {error}"));
             emit_status(&app, "error", "Не удалось проверить обновления.", None);
             Ok(serde_json::json!({
                 "success": false,
@@ -389,6 +421,7 @@ pub async fn startup_flow(
     }
 
     let channel = normalize_channel(channel);
+    log_update(&format!("startup_flow: channel={channel}, current={}", env!("CARGO_PKG_VERSION")));
     match install_update_inner(&app, &channel, &state).await {
         Ok(result) => {
             if result
@@ -402,7 +435,7 @@ pub async fn startup_flow(
             }
         }
         Err(error) => {
-            eprintln!("[updater] startup_flow install_update_inner error: {error}");
+            log_update(&format!("startup_flow error: {error}"));
             if error == "timeout: check" {
                 emit_status(
                     &app,
