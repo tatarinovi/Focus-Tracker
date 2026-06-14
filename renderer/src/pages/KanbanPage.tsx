@@ -238,7 +238,7 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
 }
 
 export default function KanbanPage() {
-  const { state, dispatch, startTimer, ensureKanbanLoaded } = useApp();
+  const { state, dispatch, startTimer, ensureKanbanLoaded, ensureKanbanTaskDetail } = useApp();
   const { tasks } = state;
   const [view, setView] = useState<'list' | 'board'>('list');
   const [search, setSearch] = useState('');
@@ -253,6 +253,11 @@ export default function KanbanPage() {
   useEffect(() => {
     ensureKanbanLoaded(true);
   }, [ensureKanbanLoaded]);
+
+  const openTask = (task: Task) => {
+    setSelectedTask(task);
+    void ensureKanbanTaskDetail(task.id);
+  };
 
   const filtered = useMemo(() => {
     return tasks.filter(t => {
@@ -363,7 +368,7 @@ export default function KanbanPage() {
                   <tr
                     key={task.id}
                     data-testid={`task-row-${task.id}`}
-                    onClick={() => setSelectedTask(task)}
+                    onClick={() => openTask(task)}
                     className="border-b border-border/50 hover:bg-secondary/30 cursor-pointer transition-colors group"
                   >
                     <td className="px-6 py-2.5">
@@ -419,7 +424,7 @@ export default function KanbanPage() {
                     </div>
                     <div className="flex-1 space-y-2 overflow-y-auto scrollbar-thin">
                       {colTasks.map(task => (
-                        <KanbanCard key={task.id} task={task} onClick={() => setSelectedTask(task)} />
+                        <KanbanCard key={task.id} task={task} onClick={() => openTask(task)} />
                       ))}
                       {colTasks.length === 0 && (
                         <div className="text-center py-6 text-xs text-muted-foreground border border-dashed border-border rounded-lg">

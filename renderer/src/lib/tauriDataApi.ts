@@ -233,6 +233,8 @@ function priorityFromKanban(priority: any): TaskPriority {
 function statusFromKanban(task: any): TaskStatus {
   const raw = String(task?.stage?.name || task?.status?.name || task?.status_name || task?.status || "").toLowerCase();
   const stageId = Number(task?.stage?.id ?? task?.stage_id ?? task?.stage);
+  if (raw.includes("todo") || raw.includes("to do")) return "To Do";
+  if (raw.includes("backlog")) return "Backlog";
   if (stageId === 7 || raw.includes("реш")) return "Done";
   if (stageId === 4 || raw.includes("ревью")) return "Review";
   if (raw.includes("работ")) return "In Progress";
@@ -349,7 +351,31 @@ export function normalizeKanbanTask(task: any, baseUrl = ""): Task {
         }))
       : [],
     url,
+    detailsLoaded: Boolean(task?.detailsLoaded),
   } as Task & { url?: string };
+}
+
+export function mergeKanbanTaskList(existingTasks: Task[], nextTasks: Task[]) {
+  const existingById = new Map(existingTasks.map((task) => [task.id, task]));
+  return nextTasks.map((task) => {
+    const existing = existingById.get(task.id);
+    if (!existing) return task;
+    const detailFields = existing.detailsLoaded
+      ? {
+          description: existing.description,
+          checklist: existing.checklist,
+          comments: existing.comments,
+          detailsLoaded: true,
+        }
+      : {};
+
+    return {
+      ...existing,
+      ...task,
+      isPinned: existing.isPinned,
+      ...detailFields,
+    };
+  });
 }
 
 export function normalizeHistoryEntry(entry: any, index: number): HistoryEntry {
@@ -426,7 +452,7 @@ export async function loadRealNotes() {
   return notes.map(normalizeNote);
 }
 
-export async function loadRealKanbanTasks(config: any) {
+export async function loadRealKanbanTasks(config: any, options: { hydrateDetails?: boolean } = {}) {
   if (!window.api || !config?.kanban?.token) return [];
   let userInfo = config?.kanban?.userInfo?.data || config?.kanban?.userInfo;
   let userId = config?.kanban?.userId || config?.kanban?.user_id || userInfo?.id;
@@ -456,8 +482,11 @@ export async function loadRealKanbanTasks(config: any) {
     throw new Error(result.error || "KANBAN_LOAD_FAILED");
   }
   const tasks = unwrapKanbanList(result);
-  const hydratedTasks = await hydrateKanbanTaskDetails(tasks, config.kanban.token);
-  return hydratedTasks.map((task: any) => normalizeKanbanTask(task, baseUrl));
+  if (options.hydrateDetails) {
+    const hydratedTasks = await hydrateKanbanTaskDetails(tasks, config.kanban.token);
+    return hydratedTasks.map((task: any) => normalizeKanbanTask({ ...task, detailsLoaded: true }, baseUrl));
+  }
+  return tasks.map((task: any) => normalizeKanbanTask({ ...task, detailsLoaded: false }, baseUrl));
 }
 
 async function hydrateKanbanTaskDetails(tasks: any[], token: string) {
@@ -477,6 +506,18 @@ async function hydrateKanbanTaskDetails(tasks: any[], token: string) {
     result.push(...detailed);
   }
   return result;
+}
+
+export async function loadRealKanbanTaskDetail(config: any, task: Task) {
+  if (!window.api?.kanbanGetTask || !config?.kanban?.token) return task;
+  const [baseUrl, response] = await Promise.all([
+    window.api.getKanbanBaseUrl(),
+    window.api.kanbanGetTask(task.id, config.kanban.token),
+  ]);
+  if (response?.success === false) {
+    throw new Error(response.error || "KANBAN_TASK_LOAD_FAILED");
+  }
+  return normalizeKanbanTask({ ...mergeKanbanTaskDetail(task, response), detailsLoaded: true }, baseUrl);
 }
 
 export async function loadRealCalendarEvents(config: any) {

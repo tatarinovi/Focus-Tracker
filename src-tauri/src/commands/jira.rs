@@ -231,3 +231,19 @@ pub async fn upload_jira_attachments(
     let data: Value = response.json().await.map_err(|e| e.to_string())?;
     Ok(serde_json::json!({ "success": true, "data": data }))
 }
+
+#[tauri::command]
+pub async fn search_jira_users(app: AppHandle, query: String) -> Result<Value, String> {
+    let data = jira_request(
+        "GET",
+        &format!(
+            "/rest/api/2/user/search?query={}&maxResults=20",
+            urlencoding::encode(&query)
+        ),
+        None,
+        false,
+        &app,
+    )
+    .await?;
+    Ok(serde_json::json!({ "success": true, "data": data }))
+}

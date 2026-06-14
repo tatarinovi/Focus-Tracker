@@ -9,6 +9,7 @@ export interface Task {
   id: number;
   title: string;
   url?: string;
+  detailsLoaded?: boolean;
   project: string;
   status: TaskStatus;
   priority: TaskPriority;

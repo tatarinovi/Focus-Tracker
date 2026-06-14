@@ -283,16 +283,17 @@ function Sidebar({ isNarrow, isOpen, onClose }: { isNarrow: boolean; isOpen: boo
   const totalMinutes = todayHistory.reduce((sum, h) => sum + h.duration, 0);
 
   const integrations = [
-    { label: 'Kanban', status: state.config?.kanban?.token ? 'connected' : 'disconnected' },
-    { label: 'Календарь', status: state.settings.calendar.url ? 'connected' : 'disconnected' },
-    { label: 'Jira', status: state.settings.jira.url && state.settings.jira.login ? 'connected' : 'disconnected' },
-    { label: 'Resonance', status: state.settings.resonance.connected ? 'connected' : 'disconnected' },
+    { label: 'Kanban', status: state.config?.kanban?.token ? 'connected' : 'disconnected', loading: state.loading.kanban },
+    { label: 'Календарь', status: state.settings.calendar.url ? 'connected' : 'disconnected', loading: state.loading.calendar },
+    { label: 'Jira', status: state.settings.jira.url && state.settings.jira.login ? 'connected' : 'disconnected', loading: state.loading.jira },
+    { label: 'Resonance', status: state.settings.resonance.connected ? 'connected' : 'disconnected', loading: false },
   ];
 
   const statusColor: Record<string, string> = {
     connected: 'bg-green-500',
     partial: 'bg-yellow-500',
     disconnected: 'bg-gray-500',
+    loading: 'bg-blue-500 animate-pulse',
   };
 
   const sidebarContent = (
@@ -354,7 +355,7 @@ function Sidebar({ isNarrow, isOpen, onClose }: { isNarrow: boolean; isOpen: boo
           {integrations.map(int => (
             <div key={int.label} className="flex items-center justify-between">
               <span className="text-[11px] text-muted-foreground">{int.label}</span>
-              <div className={`w-1.5 h-1.5 rounded-full ${statusColor[int.status]}`} />
+              <div className={`w-1.5 h-1.5 rounded-full ${int.loading ? 'bg-blue-500 animate-pulse' : statusColor[int.status]}`} />
             </div>
           ))}
         </div>

@@ -150,6 +150,7 @@ pub fn run() {
             commands::jira::get_jira_epics,
             commands::jira::create_jira_issue,
             commands::jira::upload_jira_attachments,
+            commands::jira::search_jira_users,
             // Calendar
             commands::calendar::fetch_calendar_caldav,
             commands::calendar::update_calendar_rsvp,

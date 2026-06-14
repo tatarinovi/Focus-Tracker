@@ -36,6 +36,7 @@ export const api = {
   deleteJiraTemplate: (name: string) =>
     invoke("delete_jira_template", { name }),
   createJiraIssue: (payload: any) => invoke("create_jira_issue", { payload }),
+  searchJiraUsers: (query: string) => invoke("search_jira_users", { query }),
   uploadJiraAttachments: (issueKey: string, attachments: any[]) =>
     invoke("upload_jira_attachments", { issueKey, attachments }),
   closeJiraWindow: () => invoke("close_app"),

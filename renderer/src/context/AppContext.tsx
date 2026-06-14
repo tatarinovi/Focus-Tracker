@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { Task, HistoryEntry, Note, AppNotification, CalendarEvent, roundToQuarter } from '@/data/mockData';
-import { loadRealCalendarEvents, loadRealHistory, loadRealKanbanTasks, loadRealNotes } from '@/lib/tauriDataApi';
+import { loadRealCalendarEvents, loadRealHistory, loadRealKanbanTaskDetail, loadRealKanbanTasks, loadRealNotes, mergeKanbanTaskList } from '@/lib/tauriDataApi';
 import { toast } from 'sonner';
 import { AppSoundKey, playAppSound, setAppAudioVolume, soundToast, stopAllSounds } from '@/lib/appAudio';
 
@@ -58,7 +58,7 @@ interface AppState {
   notifOpen: boolean;
   compactMode: boolean;
   selectedDate: string;
-  loading: { kanban: boolean; calendar: boolean; notes: boolean };
+  loading: { kanban: boolean; calendar: boolean; jira: boolean; notes: boolean };
   config: Record<string, any> | null;
 }
 
@@ -215,7 +215,7 @@ const initialState: AppState = {
   notifOpen: false,
   compactMode: false,
   selectedDate: `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`,
-  loading: { kanban: false, calendar: false, notes: false },
+  loading: { kanban: false, calendar: false, jira: false, notes: false },
   config: null,
 };
 
@@ -431,6 +431,7 @@ interface AppContextValue {
   startLunch: () => void;
   endLunch: () => void;
   ensureKanbanLoaded: (force?: boolean, notify?: boolean) => Promise<void>;
+  ensureKanbanTaskDetail: (taskId: number) => Promise<Task | null>;
   ensureCalendarLoaded: (force?: boolean) => Promise<void>;
   ensureNotesLoaded: (force?: boolean) => Promise<void>;
   reloadHistory: () => Promise<void>;
@@ -442,6 +443,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const stateRef = useRef(state);
   const kanbanRequestRef = useRef<Promise<void> | null>(null);
+  const kanbanTaskRequestRef = useRef<Map<number, Promise<Task | null>>>(new Map());
   const calendarRequestRef = useRef<Promise<void> | null>(null);
   const notesRequestRef = useRef<Promise<void> | null>(null);
   const remindedMeetingsRef = useRef<Set<string>>(new Set());
@@ -678,9 +680,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const checkForNewTasks = async () => {
       try {
         const config = stateRef.current.config || await window.api!.loadConfig();
-        const tasks = await loadRealKanbanTasks(config);
+        const tasks = await loadRealKanbanTasks(config, { hydrateDetails: false });
+        const mergedTasks = mergeKanbanTaskList(stateRef.current.tasks, tasks);
         const prevIds = prevTaskIdsRef.current;
-        const newTasks = tasks.filter(t => !prevIds.has(t.id));
+        const newTasks = mergedTasks.filter(t => !prevIds.has(t.id));
         if (newTasks.length > 0) {
           for (const task of newTasks) {
             const ts = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -691,7 +694,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
           playSound('notification');
         }
-        dispatch({ type: 'SET_TASKS', tasks });
+        dispatch({ type: 'SET_TASKS', tasks: mergedTasks });
       } catch {}
     };
 
@@ -786,7 +789,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!window.api) return;
     if (kanbanRequestRef.current) return kanbanRequestRef.current;
     const current = stateRef.current;
-    if (!force && current.tasks.length > 0) return;
+    if (!force && current.tasks.length > 0 && current.tasks.some(task => task.detailsLoaded)) return;
 
     kanbanRequestRef.current = (async () => {
       dispatch({ type: 'SET_LOADING', key: 'kanban', value: true });
@@ -794,11 +797,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const latest = stateRef.current;
         const config = latest.config || await window.api!.loadConfig();
         dispatch({ type: 'SET_CONFIG', config });
-        const tasks = await loadRealKanbanTasks(config);
+        const shouldHydrateDetails = latest.tasks.length === 0 || !latest.tasks.some(task => task.detailsLoaded);
+        const tasks = await loadRealKanbanTasks(config, { hydrateDetails: shouldHydrateDetails });
+        const mergedTasks = shouldHydrateDetails ? tasks : mergeKanbanTaskList(latest.tasks, tasks);
         const refreshedConfig = await window.api!.loadConfig().catch(() => config);
         dispatch({ type: 'SET_CONFIG', config: refreshedConfig });
-        dispatch({ type: 'SET_TASKS', tasks });
-        if (notify) soundToast.success(`Kanban обновлён: ${tasks.length} задач`);
+        dispatch({ type: 'SET_TASKS', tasks: mergedTasks });
+        if (notify) soundToast.success(`Kanban обновлён: ${mergedTasks.length} задач`);
       } catch (error: any) {
         soundToast.error(error?.message || 'Не удалось загрузить Kanban');
       } finally {
@@ -807,6 +812,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     })();
     return kanbanRequestRef.current;
+  }, []);
+
+  const ensureKanbanTaskDetail = useCallback(async (taskId: number) => {
+    if (!window.api) return null;
+    const currentTask = stateRef.current.tasks.find(task => task.id === taskId);
+    if (!currentTask || currentTask.detailsLoaded) return currentTask || null;
+    const existingRequest = kanbanTaskRequestRef.current.get(taskId);
+    if (existingRequest) return existingRequest;
+
+    const request = (async () => {
+      try {
+        const config = stateRef.current.config || await window.api!.loadConfig();
+        const latestTask = stateRef.current.tasks.find(task => task.id === taskId) || currentTask;
+        const detailedTask = await loadRealKanbanTaskDetail(config, latestTask);
+        dispatch({ type: 'UPDATE_TASK', task: detailedTask });
+        return detailedTask;
+      } catch (error: any) {
+        soundToast.error(error?.message || 'Не удалось загрузить детали задачи');
+        return null;
+      } finally {
+        kanbanTaskRequestRef.current.delete(taskId);
+      }
+    })();
+    kanbanTaskRequestRef.current.set(taskId, request);
+    return request;
   }, []);
 
   const ensureCalendarLoaded = useCallback(async (force = false) => {
@@ -851,7 +881,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AppContext.Provider value={{ state, dispatch, startTimer, requestStop, confirmStop, cancelStop, requestSwitch, confirmSwitch, startLunch, endLunch, ensureKanbanLoaded, ensureCalendarLoaded, ensureNotesLoaded, reloadHistory }}>
+    <AppContext.Provider value={{ state, dispatch, startTimer, requestStop, confirmStop, cancelStop, requestSwitch, confirmSwitch, startLunch, endLunch, ensureKanbanLoaded, ensureKanbanTaskDetail, ensureCalendarLoaded, ensureNotesLoaded, reloadHistory }}>
       {children}
     </AppContext.Provider>
   );
