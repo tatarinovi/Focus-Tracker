@@ -16,6 +16,7 @@ import {
   FEATURES,
   TECH_STACK,
   CHANGELOG,
+  SCREENSHOTS,
   GITHUB_URL,
   RELEASES_URL,
   DESCRIPTION,
@@ -88,7 +89,7 @@ function Hero() {
         </div>
         <div className="relative mx-auto max-w-4xl rounded-2xl border border-gray-800 overflow-hidden shadow-2xl shadow-black/50">
           <img
-            src="./opengraph.jpg"
+            src="./opengraph.png"
             alt="Focus Tracker — интерфейс приложения"
             className="w-full h-auto"
             loading="eager"
@@ -131,6 +132,65 @@ function Features() {
               </div>
             );
           })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Gallery() {
+  const [current, setCurrent] = useState(0);
+
+  const prev = () => setCurrent((i) => (i === 0 ? SCREENSHOTS.length - 1 : i - 1));
+  const next = () => setCurrent((i) => (i === SCREENSHOTS.length - 1 ? 0 : i + 1));
+
+  return (
+    <section className="py-20 lg:py-28 border-t border-gray-800/50">
+      <div className="mx-auto max-w-5xl px-6">
+        <div className="text-center mb-14">
+          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+            Интерфейс
+          </h2>
+          <p className="text-gray-400 max-w-xl mx-auto">
+            Как выглядит Focus Tracker
+          </p>
+        </div>
+        <div className="relative group">
+          <div className="overflow-hidden rounded-2xl border border-gray-800 bg-[#15171e]">
+            <img
+              src={SCREENSHOTS[current].src}
+              alt={SCREENSHOTS[current].alt}
+              className="w-full h-auto transition-opacity duration-300"
+            />
+          </div>
+          <button
+            onClick={prev}
+            className="absolute left-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/60 border border-gray-700 text-gray-300 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80 hover:text-white"
+          >
+            ‹
+          </button>
+          <button
+            onClick={next}
+            className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/60 border border-gray-700 text-gray-300 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80 hover:text-white"
+          >
+            ›
+          </button>
+          <p className="text-center text-sm text-gray-500 mt-4">
+            {SCREENSHOTS[current].caption}
+          </p>
+          <div className="flex items-center justify-center gap-2 mt-4">
+            {SCREENSHOTS.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrent(i)}
+                className={`h-2 rounded-full transition-all ${
+                  i === current
+                    ? "w-6 bg-[#5b7cfa]"
+                    : "w-2 bg-gray-600 hover:bg-gray-500"
+                }`}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </section>
@@ -309,6 +369,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[#0f1117] text-white">
       <Hero />
       <Features />
+      <Gallery />
       <TechStack />
       <DownloadSection />
       <Changelog />

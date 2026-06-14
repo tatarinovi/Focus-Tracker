@@ -125,6 +125,34 @@ export const CHANGELOG = [
   },
 ];
 
+export const SCREENSHOTS = [
+  {
+    src: "./screenshots/main-page.png",
+    alt: "Главная страница",
+    caption: "Главная — таймер, ближайшие созвоны, задачи",
+  },
+  {
+    src: "./screenshots/calendar.png",
+    alt: "Календарь",
+    caption: "Календарь с интеграцией CalDAV",
+  },
+  {
+    src: "./screenshots/jira.png",
+    alt: "Jira",
+    caption: "Создание задачи в Jira",
+  },
+  {
+    src: "./screenshots/settings.png",
+    alt: "Настройки",
+    caption: "Настройки приложения",
+  },
+  {
+    src: "./screenshots/about.png",
+    alt: "О приложении",
+    caption: "Информация и автообновления",
+  },
+];
+
 export type Platform = "windows" | "macos" | "linux" | "unknown";
 
 export function detectPlatform(): Platform {

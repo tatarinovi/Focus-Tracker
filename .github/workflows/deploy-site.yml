@@ -45,7 +45,7 @@ jobs:
           mkdir -p deploy/updates
           cp renderer-dist/landing.html deploy/index.html
           cp -r renderer-dist/assets deploy/assets
-          cp renderer-dist/opengraph.jpg deploy/ 2>/dev/null || true
+          cp renderer-dist/opengraph.png deploy/ 2>/dev/null || true
           cp renderer-dist/favicon.svg deploy/ 2>/dev/null || true
           cp renderer-dist/apple-touch-icon.svg deploy/ 2>/dev/null || true
           curl -fsSL https://tatarinovi.github.io/Focus-Tracker/updates/stable.json -o deploy/updates/stable.json 2>/dev/null || true
