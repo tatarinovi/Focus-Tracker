@@ -15,6 +15,7 @@ import {
 import {
   FEATURES,
   TECH_STACK,
+  CHANGELOG,
   GITHUB_URL,
   RELEASES_URL,
   DESCRIPTION,
@@ -230,6 +231,49 @@ function DownloadSection() {
   );
 }
 
+function Changelog() {
+  return (
+    <section className="py-20 lg:py-28 border-t border-gray-800/50">
+      <div className="mx-auto max-w-5xl px-6">
+        <div className="text-center mb-14">
+          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+            История изменений
+          </h2>
+          <p className="text-gray-400 max-w-xl mx-auto">
+            Что нового в каждом релизе
+          </p>
+        </div>
+        <div className="space-y-8">
+          {CHANGELOG.map((release) => (
+            <div
+              key={release.version}
+              className="rounded-xl border border-gray-800 bg-[#15171e] p-6"
+            >
+              <div className="flex items-baseline gap-3 mb-4">
+                <span className="text-lg font-semibold text-white">
+                  v{release.version}
+                </span>
+                <span className="text-sm text-gray-500">{release.date}</span>
+              </div>
+              <ul className="space-y-2">
+                {release.changes.map((change, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 text-sm text-gray-400"
+                  >
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#5b7cfa]/60" />
+                    {change}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Footer() {
   return (
     <footer className="border-t border-gray-800/50 py-10">
@@ -267,6 +311,7 @@ export default function LandingPage() {
       <Features />
       <TechStack />
       <DownloadSection />
+      <Changelog />
       <Footer />
     </div>
   );

@@ -1,0 +1,61 @@
+name: Deploy Site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'renderer/landing.html'
+      - 'renderer/src/landing.tsx'
+      - 'renderer/src/pages/LandingPage.tsx'
+      - 'renderer/src/content/site.ts'
+      - 'renderer/src/index.css'
+      - 'renderer/public/**'
+      - '.github/workflows/deploy-site.yml'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-22.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Build landing page
+        run: npm run renderer:build
+
+      - name: Prepare GitHub Pages deploy directory
+        run: |
+          mkdir -p deploy/updates
+          cp renderer-dist/landing.html deploy/index.html
+          cp -r renderer-dist/assets deploy/assets
+          cp renderer-dist/opengraph.jpg deploy/ 2>/dev/null || true
+          cp renderer-dist/favicon.svg deploy/ 2>/dev/null || true
+          cp renderer-dist/apple-touch-icon.svg deploy/ 2>/dev/null || true
+          curl -fsSL https://tatarinovi.github.io/Focus-Tracker/updates/stable.json -o deploy/updates/stable.json 2>/dev/null || true
+          curl -fsSL https://tatarinovi.github.io/Focus-Tracker/updates/beta.json -o deploy/updates/beta.json 2>/dev/null || true
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: deploy
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
