@@ -539,6 +539,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const theme = state.settings.theme;
     const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.classList.toggle('dark', isDark);
+    localStorage.setItem('theme', theme);
   }, [state.settings.theme]);
 
   useEffect(() => {
