@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { Task, HistoryEntry, Note, AppNotification, CalendarEvent, roundToQuarter } from '@/data/mockData';
-import { loadRealCalendarEvents, loadRealHistory, loadRealKanbanTasks, loadRealNotes } from '@/lib/electronApi';
+import { loadRealCalendarEvents, loadRealHistory, loadRealKanbanTasks, loadRealNotes } from '@/lib/tauriDataApi';
 import { toast } from 'sonner';
 
 export interface TimerState {

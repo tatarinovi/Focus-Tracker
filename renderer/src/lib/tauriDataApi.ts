@@ -11,7 +11,7 @@ import {
 
 export const api = () => window.api;
 
-export function isElectronRuntime() {
+export function isTauriRuntime() {
   return Boolean(window.api);
 }
 

@@ -1,9 +1,9 @@
 import { createRoot } from "react-dom/client";
 import "./index.css";
 
-import { api, electronAPI } from "./lib/tauriApi";
+import { api, tauriRuntime } from "./lib/tauriApi";
 (window as any).api = api;
-(window as any).electronAPI = electronAPI;
+(window as any).tauriRuntime = tauriRuntime;
 
 console.info("[Startup] renderer script start");
 performance.mark?.("ft-renderer-script-start");

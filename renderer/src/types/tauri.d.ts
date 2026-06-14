@@ -64,10 +64,10 @@ declare global {
 
   interface Window {
     api?: TaskTrackerApi;
-    electronAPI?: {
-      platform: 'win32' | 'darwin' | 'linux';
-      isElectron: boolean;
-      versions: { electron: string; chrome: string; node: string };
+    tauriRuntime?: {
+      platform: string;
+      isTauri: boolean;
+      versions: { tauri: string; webview: string };
       windowControls: {
         minimize: () => Promise<void>;
         toggleMaximize: () => Promise<void>;

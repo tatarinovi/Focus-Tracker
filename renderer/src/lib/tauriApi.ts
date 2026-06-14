@@ -126,9 +126,9 @@ export const api = {
   },
 };
 
-export const electronAPI = {
+export const tauriRuntime = {
   platform: navigator.platform,
-  isElectron: true,
+  isTauri: true,
   versions: {
     tauri: "2.x",
     webview: navigator.userAgent,

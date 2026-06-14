@@ -94,43 +94,23 @@
 
 ---
 
-## Структура проекта
+## Project Structure
 
+```text
+renderer/                  React/Vite frontend
+  public/                  splash, reminder, icons and static assets
+  src/                     pages, context, components and Tauri API wrappers
+src-tauri/                 Rust backend, Tauri config, commands and bundle settings
+  src/commands/            app commands: tasks, config, updates, storage, integrations
+  capabilities/            Tauri permissions
+  tauri.conf.json          windows, updater and bundle config
+scripts/                   build and release helper scripts
+installer/                 optional installer branding assets
+app-secrets.example.js     local secret example
+package.json
+.github/workflows/
+  release.yml              CI/CD build, release and updater manifests
 ```
-├── main.js               # Главный процесс (IPC, API, ФС, сеть)
-├── preload.js             # ContextBridge (window.api)
-├── renderer.js            # Точка входа фронтенда
-├── index.html             # Основная верстка
-├── style.css              # Стили (CSS-переменные, темы)
-├── jira-create.html       # Окно создания задачи в Jira
-├── reminder.html          # Окно напоминания о созвоне
-├── splash.html            # Сплэш-скрин
-├── src/
-│   ├── state.js           # Состояние таймера и помодоро
-│   ├── store.js           # Глобальный кэш (конфиг, задачи)
-│   ├── utils.js           # Утилиты ($, escapeHtml, msToHMS)
-│   ├── timer.js           # Логика таймера задач
-│   ├── pomodoro.js        # Логика помодоро
-│   ├── kanban.js          # Kanban: загрузка, фильтры, доска
-│   ├── calendar.js        # Календарь: парсинг, RSVP, напоминания
-│   ├── history.js         # История и timeline
-│   ├── lunch.js           # Обед и Telegram-уведомления
-│   ├── settings.js        # Настройки и авторизация
-│   ├── about.js           # Обновления и версия
-│   ├── notes.js           # Заметки (Markdown-редактор)
-│   ├── notifications.js   # In-app уведомления
-│   └── jira-create.js     # Логика окна Jira
-├── assets/
-│   ├── alarm.ogg          # Звук уведомлений
-│   └── icon.ico           # Иконка приложения
-├── app-secrets.example.js # Пример файла секретов
-├── package.json
-├── CLAUDE.md              # Инструкции для Claude (контекст разработки)
-└── .github/
-    └── workflows/
-        └── release.yml    # CI/CD: сборка и публикация
-```
-
 ---
 
 ## Быстрый старт
@@ -193,35 +173,26 @@ npm run build:linux
 
 ---
 
-## Архитектура
+## Architecture
 
-### IPC (Inter-Process Communication)
+### Tauri Commands
 
-Приложение строго разделяет процессы:
+The app is split into a React/Vite frontend and a Rust/Tauri backend:
 
-1. **Main** (`main.js`) — Node.js: файловая система, сетевые запросы, API Kanban/Jira/Telegram/CalDAV, шифрование паролей
-2. **Preload** (`preload.js`) — мост через `contextBridge`, экспортирует `window.api`
-3. **Renderer** (`renderer.js` + `src/*.js`) — чистый DOM, никаких `require('electron')` или `fs`
+1. **Rust/Tauri** (`src-tauri/src`) handles local files, system windows, notifications, updater, storage and integrations.
+2. **Frontend** (`renderer/src`) renders the React UI, pages, app state and calls Tauri commands through `window.api`.
+3. **Static windows** (`renderer/public`) contain the splash screen and reminder window, wired through Tauri invoke/events.
 
-Добавление нового метода:
-1. Создать обработчик `ipcMain.handle('method-name', ...)` в `main.js`
-2. Добавить обёртку в `preload.js` внутри `window.api`
-3. Вызвать на фронтенде: `await window.api.methodName()`
+Adding a new method:
+1. Create a Tauri command in `src-tauri/src/commands/`.
+2. Register the command in `src-tauri/src/lib.rs`.
+3. Add a wrapper in `renderer/src/lib/tauriApi.ts`.
+4. Call it from the frontend: `await window.api.methodName()`.
 
-### Управление состоянием
+### State Management
 
-- **`src/state.js`** — быстрые данные (таймер, помодоро)
-- **`src/store.js`** — глобальный кэш (конфигурация, задачи Kanban)
-
-### Стиль кода
-
-- Отступы: 2 пробела
-- Кавычки: одинарные (`'`)
-- Точка с запятой: обязательна
-- Return early для избежания вложенности
-- Выравнивание импортов и переменных в колонки
-- XSS: все пользовательские данные через `escapeHtml()` перед `innerHTML`
-
+- **`renderer/src/context/AppContext.tsx`** stores timer, tasks, notes, calendar and settings state.
+- **`renderer/src/lib/tauriDataApi.ts`** normalizes data returned by Tauri commands.
 ---
 
 ## CI/CD
@@ -256,7 +227,7 @@ Required release secrets:
 
 ## Хранение данных
 
-Все данные хранятся локально в `app.getPath('userData')`:
+All user data is stored locally in the Tauri app data directory (`app.path().app_data_dir()`).
 
 | Файл | Содержимое |
 |------|-----------|

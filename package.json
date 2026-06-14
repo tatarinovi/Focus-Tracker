@@ -5,7 +5,6 @@
   "license": "ISC",
   "author": "",
   "type": "commonjs",
-  "main": "main.js",
   "scripts": {
     "dev": "node scripts/dev.cjs",
     "tauri": "node scripts/tauri.cjs",

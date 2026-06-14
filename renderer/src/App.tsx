@@ -8,16 +8,16 @@ import { AppProvider, useApp } from "@/context/AppContext";
 import { formatSeconds, formatMinutes } from "@/data/mockData";
 import { useState, useEffect, useCallback } from "react";
 
-const isElectron = typeof window !== 'undefined' && !!window.electronAPI?.isElectron;
+const isTauri = typeof window !== 'undefined' && !!window.tauriRuntime?.isTauri;
 const drag = { WebkitAppRegion: 'drag' } as React.CSSProperties;
 const noDrag = { WebkitAppRegion: 'no-drag' } as React.CSSProperties;
 
 function useWindowMaximized() {
   const [isMaximized, setIsMaximized] = useState(false);
   useEffect(() => {
-    if (!isElectron) return;
-    window.electronAPI!.windowControls.isMaximized().then(setIsMaximized);
-    const off = window.electronAPI!.windowControls.onMaximizeChange(setIsMaximized);
+    if (!isTauri) return;
+    window.tauriRuntime!.windowControls.isMaximized().then(setIsMaximized);
+    const off = window.tauriRuntime!.windowControls.onMaximizeChange(setIsMaximized);
     return off;
   }, []);
   return isMaximized;
@@ -25,16 +25,16 @@ function useWindowMaximized() {
 
 function WindowControls() {
   const isMaximized = useWindowMaximized();
-  if (!isElectron) return null;
+  if (!isTauri) return null;
 
-  const platform = window.electronAPI!.platform;
+  const platform = window.tauriRuntime!.platform;
   const isMac = platform === 'darwin';
 
   const buttons = [
     {
       label: 'Свернуть',
       icon: <Minus className="w-3 h-3" />,
-      onClick: () => window.electronAPI!.windowControls.minimize(),
+      onClick: () => window.tauriRuntime!.windowControls.minimize(),
       hoverClass: 'hover:bg-yellow-500/20 hover:text-yellow-400',
     },
     {
@@ -42,13 +42,13 @@ function WindowControls() {
       icon: isMaximized
         ? <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 8V2h6M4 4h6v6H4z"/></svg>
         : <Square className="w-3 h-3" />,
-      onClick: () => window.electronAPI!.windowControls.toggleMaximize(),
+      onClick: () => window.tauriRuntime!.windowControls.toggleMaximize(),
       hoverClass: 'hover:bg-green-500/20 hover:text-green-400',
     },
     {
       label: 'Закрыть',
       icon: <X className="w-3.5 h-3.5" />,
-      onClick: () => window.electronAPI!.windowControls.close(),
+      onClick: () => window.tauriRuntime!.windowControls.close(),
       hoverClass: 'hover:bg-red-500 hover:text-white',
     },
   ];
@@ -87,7 +87,7 @@ const AboutPage = lazy(() => import("@/pages/AboutPage"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 const queryClient = new QueryClient();
-const electronLocation = memoryLocation({ path: "/" });
+const tauriLocation = memoryLocation({ path: "/" });
 
 function useIsNarrow(breakpoint = 1024) {
   const [narrow, setNarrow] = useState(() => window.innerWidth < breakpoint);
@@ -173,10 +173,10 @@ function Topbar({ onMenuClick, isNarrow }: { onMenuClick: () => void; isNarrow: 
   return (
     <div
       className="h-[47px] border-b border-border bg-background flex items-center justify-between flex-shrink-0 z-40 select-none"
-      style={isElectron ? drag : undefined}
+      style={isTauri ? drag : undefined}
     >
       {/* Left: hamburger + date + active task */}
-      <div className="flex items-center gap-4 px-4" style={isElectron ? noDrag : undefined}>
+      <div className="flex items-center gap-4 px-4" style={isTauri ? noDrag : undefined}>
         {isNarrow && (
           <button
             onClick={onMenuClick}
@@ -212,7 +212,7 @@ function Topbar({ onMenuClick, isNarrow }: { onMenuClick: () => void; isNarrow: 
 
       {/* Right: app controls + window controls */}
       <div className="flex items-stretch h-full">
-        <div className="flex items-center gap-1 px-2" style={isElectron ? noDrag : undefined}>
+        <div className="flex items-center gap-1 px-2" style={isTauri ? noDrag : undefined}>
           {!lunch.active ? (
             <button
               data-testid="button-lunch"
@@ -242,7 +242,7 @@ function Topbar({ onMenuClick, isNarrow }: { onMenuClick: () => void; isNarrow: 
           </button>
           <NotificationPanel />
         </div>
-        {/* Window chrome buttons — only visible in Electron */}
+        {/* Window chrome buttons — only visible in Tauri */}
         <div className="border-l border-border">
           <WindowControls />
         </div>
@@ -376,20 +376,20 @@ function CompactMode() {
   return (
     <div
       className="h-screen w-screen bg-card border border-border text-foreground overflow-hidden select-none"
-      style={isElectron ? drag : undefined}
+      style={isTauri ? drag : undefined}
     >
       <div className="flex items-center justify-between h-7 px-2 border-b border-border">
         <span className="text-[10px] font-semibold text-muted-foreground truncate">Focus Tracker</span>
         <button
           onClick={() => dispatch({ type: 'TOGGLE_COMPACT' })}
           className="p-1 text-muted-foreground hover:text-foreground rounded"
-          style={isElectron ? noDrag : undefined}
+          style={isTauri ? noDrag : undefined}
           title="Полный режим"
         >
           <Maximize2 className="w-3.5 h-3.5" />
         </button>
       </div>
-      <div className="px-2 py-2" style={isElectron ? noDrag : undefined}>
+      <div className="px-2 py-2" style={isTauri ? noDrag : undefined}>
         {timer.activeTask ? (
           <>
             <p className="text-[11px] font-medium truncate mb-1">{timer.activeTask.title}</p>
@@ -624,8 +624,8 @@ function App() {
         <AppProvider>
           <WouterRouter
             base=""
-            hook={isElectron ? electronLocation.hook : undefined}
-            searchHook={isElectron ? electronLocation.searchHook : undefined}
+            hook={isTauri ? tauriLocation.hook : undefined}
+            searchHook={isTauri ? tauriLocation.searchHook : undefined}
           >
             <AppLayout />
           </WouterRouter>
