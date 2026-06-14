@@ -11,6 +11,8 @@ import {
 
 export const api = () => window.api;
 
+let kanbanBaseUrlCache: string | null = null;
+
 export function isTauriRuntime() {
   return Boolean(window.api);
 }
@@ -474,10 +476,11 @@ export async function loadRealKanbanTasks(config: any, options: { hydrateDetails
     }
   }
   if (!userId) throw new Error("KANBAN_USER_ID_MISSING");
-  const [baseUrl, result] = await Promise.all([
-    window.api.getKanbanBaseUrl(),
-    window.api.kanbanGetTasks(userId, config.kanban.token),
-  ]);
+  if (!kanbanBaseUrlCache) {
+    kanbanBaseUrlCache = await window.api.getKanbanBaseUrl().catch(() => "");
+  }
+  const baseUrl = kanbanBaseUrlCache;
+  const result = await window.api.kanbanGetTasks(userId, config.kanban.token);
   if (result?.success === false) {
     throw new Error(result.error || "KANBAN_LOAD_FAILED");
   }
@@ -510,10 +513,11 @@ async function hydrateKanbanTaskDetails(tasks: any[], token: string) {
 
 export async function loadRealKanbanTaskDetail(config: any, task: Task) {
   if (!window.api?.kanbanGetTask || !config?.kanban?.token) return task;
-  const [baseUrl, response] = await Promise.all([
-    window.api.getKanbanBaseUrl(),
-    window.api.kanbanGetTask(task.id, config.kanban.token),
-  ]);
+  if (!kanbanBaseUrlCache) {
+    kanbanBaseUrlCache = await window.api.getKanbanBaseUrl().catch(() => "");
+  }
+  const baseUrl = kanbanBaseUrlCache;
+  const response = await window.api.kanbanGetTask(task.id, config.kanban.token);
   if (response?.success === false) {
     throw new Error(response.error || "KANBAN_TASK_LOAD_FAILED");
   }

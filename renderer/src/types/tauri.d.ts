@@ -25,7 +25,7 @@ declare global {
     saveJiraTemplate: (template: unknown) => Promise<boolean>;
     deleteJiraTemplate: (name: string) => Promise<boolean>;
     createJiraIssue: (payload: unknown) => Promise<any>;
-    searchJiraUsers: (query: string) => Promise<any>;
+    searchJiraUsers: (query: string, projectKey?: string) => Promise<any>;
     uploadJiraAttachments: (issueKey: string, attachments: unknown[]) => Promise<any>;
     closeJiraWindow: () => Promise<void>;
     setAlwaysOnTop: (value: boolean) => Promise<boolean>;

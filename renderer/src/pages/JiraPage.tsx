@@ -10,17 +10,34 @@ interface JiraTemplate { name: string; fields: Record<string, any>; showDetails?
 interface CreatedIssue { key: string; url: string; timestamp: number; }
 
 const PRIORITIES = ["Блокирующий", "Критический", "Высокий", "Средний", "Низкий"];
+const RP_ENV_OPTIONS = [
+  { value: "14752", label: "Производственная среда (PROD)" },
+  { value: "14754", label: "Тестовая среда (TEST)" },
+  { value: "14755", label: "Среда разработки (DEV)" },
+  { value: "17677", label: "Среда для тестирования (STAGE)" },
+];
 type FormMode = "quick" | "detailed" | "template";
 
-function SearchSelect({ value, onChange, options, placeholder, onOpen, loading, onSearch }: {
+function useDebouncedCallback<T extends (...args: any[]) => void>(cb: T, delay: number): T {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const callbackRef = useRef(cb);
+  callbackRef.current = cb;
+  return useRef((...args: any[]) => {
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => callbackRef.current(...args), delay);
+  }).current as T;
+}
+
+function SearchSelect({ value, onChange, options, placeholder, onOpen, loading, searching, onSearch }: {
   value: string; onChange: (v: string) => void;
   options: { value: string; label: string }[];
-  placeholder?: string; onOpen?: () => void; loading?: boolean;
+  placeholder?: string; onOpen?: () => void; loading?: boolean; searching?: boolean;
   onSearch?: (query: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
+  const debouncedSearch = useDebouncedCallback((q: string) => { if (onSearch) onSearch(q); }, 400);
 
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
@@ -29,8 +46,8 @@ function SearchSelect({ value, onChange, options, placeholder, onOpen, loading, 
   }, []);
 
   useEffect(() => {
-    if (onSearch && open) onSearch(query);
-  }, [query, open, onSearch]);
+    if (onSearch && open) debouncedSearch(query);
+  }, [query, open, onSearch, debouncedSearch]);
 
   const handleOpen = () => { const next = !open; setOpen(next); if (next && onOpen) onOpen(); };
   const filtered = options.filter(o => o.label.toLowerCase().includes(query.toLowerCase()));
@@ -43,7 +60,11 @@ function SearchSelect({ value, onChange, options, placeholder, onOpen, loading, 
         <span className={selected ? "text-foreground" : "text-muted-foreground"}>
           {loading ? "Загрузка..." : selected?.label || placeholder || "Выберите"}
         </span>
-        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+        {loading ? (
+          <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
+        ) : (
+          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+        )}
       </button>
       {open && (
         <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-52 overflow-hidden">
@@ -52,7 +73,12 @@ function SearchSelect({ value, onChange, options, placeholder, onOpen, loading, 
               className="w-full bg-input border border-border rounded-md px-2.5 py-1.5 text-sm focus:outline-none" autoFocus />
           </div>
           <div className="max-h-44 overflow-y-auto">
-            {filtered.length === 0 ? (
+            {searching ? (
+              <div className="flex items-center justify-center gap-2 px-3 py-3">
+                <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
+                <span className="text-xs text-muted-foreground">Поиск...</span>
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="px-3 py-2.5 text-xs text-muted-foreground">Ничего не найдено</div>
             ) : filtered.map(o => (
               <button key={o.value} type="button"
@@ -156,6 +182,7 @@ export default function JiraPage() {
   const [contractorOptions, setContractorOptions] = useState<{ value: string; label: string }[]>([]);
   const [rpEnvOptions, setRpEnvOptions] = useState<{ value: string; label: string }[]>([]);
   const [assigneeOptions, setAssigneeOptions] = useState<{ value: string; label: string }[]>([]);
+  const [searchingUsers, setSearchingUsers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [templates, setTemplates] = useState<JiraTemplate[]>([]);
@@ -180,8 +207,56 @@ export default function JiraPage() {
 
   useEffect(() => {
     try { const s = localStorage.getItem("jira_created_issues"); if (s) setHistory(JSON.parse(s)); } catch {}
-    try { const p = localStorage.getItem("jira_profile"); if (p) setProfile(JSON.parse(p)); } catch {}
+    try {
+      const p = localStorage.getItem("jira_profile");
+      if (p) {
+        const parsed = JSON.parse(p);
+        setProfile(parsed);
+        if (parsed.issueType) setIssueType(parsed.issueType);
+        if (parsed.priority) setPriority(parsed.priority);
+        if (parsed.assignee) setAssignee(parsed.assignee);
+        if (parsed.contractor) setContractor(parsed.contractor);
+        if (parsed.rpEnv?.length) setRpEnv(parsed.rpEnv);
+        if (parsed.components?.length) setComponents(parsed.components);
+        if (parsed.labels?.length) setLabels(parsed.labels);
+      }
+    } catch {}
   }, []);
+
+  const loadAllData = useCallback(async () => {
+    if (!projectKey || !window.api) return;
+    if (loadedRef.current.versions && loadedRef.current.components && loadedRef.current.createmeta) return;
+
+    if (!loadedRef.current.createmeta) {
+      const metaRes = await window.api.getJiraCreateMeta(projectKey).catch(() => null);
+      if (metaRes) {
+        createmetaCache.current = (metaRes as any)?.data || metaRes;
+        const types = createmetaCache.current?.projects?.[0]?.issuetypes || [];
+        setIssueTypes(Array.isArray(types) ? types : []);
+        if (Array.isArray(types) && types.length > 0) {
+          const names = types.map((t: any) => t.name).filter(Boolean);
+          setIssueType(prev => names.includes(prev) ? prev : names[0] || "");
+        }
+        loadedRef.current.createmeta = true;
+      }
+    }
+
+    if (!loadedRef.current.versions) {
+      loadedRef.current.versions = true;
+      const verRes = await window.api.getJiraVersions(projectKey).catch(() => []);
+      const verData = (verRes as any)?.data || verRes;
+      setVersions(Array.isArray(verData) ? verData.filter((v: any) => v?.id && v?.name) : []);
+    }
+
+    if (!loadedRef.current.components) {
+      loadedRef.current.components = true;
+      const compRes = await window.api.getJiraComponents(projectKey).catch(() => []);
+      const compData = (compRes as any)?.data || compRes;
+      setAvailableComponents(Array.isArray(compData) ? compData.filter((c: any) => c?.name) : []);
+    }
+  }, [projectKey]);
+
+  useEffect(() => { loadAllData(); }, [loadAllData]);
 
   const saveHistory = (issue: CreatedIssue) => {
     const next = [issue, ...history].slice(0, 25);
@@ -205,77 +280,40 @@ export default function JiraPage() {
     if (profile.labels.length) setLabels(profile.labels);
   };
 
-  const loadIssueTypes = useCallback(async () => {
-    if (!projectKey || !window.api) return;
-    const res = await window.api.getJiraCreateMeta(projectKey).catch(() => null);
-    if (res) {
-      createmetaCache.current = (res as any)?.data || res;
-      const types = createmetaCache.current?.projects?.[0]?.issuetypes || [];
-      setIssueTypes(Array.isArray(types) ? types : []);
-      if (Array.isArray(types) && types.length > 0) {
-        const names = types.map((t: any) => t.name).filter(Boolean);
-        setIssueType(prev => names.includes(prev) ? prev : names[0] || "");
-      }
-    }
-  }, [projectKey]);
-
-  useEffect(() => { loadIssueTypes(); }, [loadIssueTypes]);
-
-  const loadVersions = useCallback(async () => {
-    if (!projectKey || !window.api || loadedRef.current.versions) return;
-    loadedRef.current.versions = true;
-    const res = await window.api.getJiraVersions(projectKey).catch(() => []);
-    const data = (res as any)?.data || res;
-    setVersions(Array.isArray(data) ? data.filter((v: any) => v?.id && v?.name) : []);
-  }, [projectKey]);
-
-  const loadComponents = useCallback(async () => {
-    if (!projectKey || !window.api || loadedRef.current.components) return;
-    loadedRef.current.components = true;
-    const res = await window.api.getJiraComponents(projectKey).catch(() => []);
-    const data = (res as any)?.data || res;
-    setAvailableComponents(Array.isArray(data) ? data.filter((c: any) => c?.name) : []);
-  }, [projectKey]);
-
-  const ensureCreatemeta = useCallback(async () => {
-    if (createmetaCache.current) return createmetaCache.current;
-    if (!projectKey || !window.api) return null;
-    const res = await window.api.getJiraCreateMeta(projectKey).catch(() => null);
-    if (res) {
-      createmetaCache.current = (res as any)?.data || res;
-      return createmetaCache.current;
-    }
-    return null;
-  }, [projectKey]);
-
-  const loadContractorOptions = useCallback(async () => {
-    const meta = await ensureCreatemeta();
+  const loadContractorOptions = useCallback(() => {
+    const meta = createmetaCache.current;
     if (meta) {
       const f = meta?.projects?.[0]?.issuetypes?.[0]?.fields?.["customfield_13342"];
       if (f?.allowedValues && Array.isArray(f.allowedValues)) {
         setContractorOptions(f.allowedValues.map((v: any) => ({ value: v.id || v.value || "", label: v.value || v.name || "" })));
       }
     }
-  }, [ensureCreatemeta]);
+  }, []);
 
-  const loadRpEnvOptions = useCallback(async () => {
-    if (loadedRef.current.createmeta) return;
-    loadedRef.current.createmeta = true;
-    const meta = await ensureCreatemeta();
+  const loadRpEnvOptions = useCallback(() => {
+    if (rpEnvOptions.length > 0) return;
+    const meta = createmetaCache.current;
     if (meta) {
       const f = meta?.projects?.[0]?.issuetypes?.[0]?.fields?.["customfield_13274"];
-      if (f?.allowedValues && Array.isArray(f.allowedValues)) {
+      if (f?.allowedValues && Array.isArray(f.allowedValues) && f.allowedValues.length > 0) {
         setRpEnvOptions(f.allowedValues.map((v: any) => ({ value: v.id || v.value || "", label: v.value || v.name || "" })));
+        return;
       }
     }
-  }, [ensureCreatemeta]);
+    setRpEnvOptions(RP_ENV_OPTIONS);
+  }, [rpEnvOptions.length]);
 
   const searchUsers = useCallback(async (query: string) => {
     if (!window.api || query.length < 2) { setAssigneeOptions([]); return; }
-    const res = await window.api.searchJiraUsers(query).catch(() => []);
-    const data = (res as any)?.data || res;
-    setAssigneeOptions(Array.isArray(data) ? data.map((u: any) => ({ value: u.name || "", label: u.displayName || u.name || "" })) : []);
-  }, []);
+    setSearchingUsers(true);
+    try {
+      const res = await window.api.searchJiraUsers(query, projectKey || undefined).catch(() => []);
+      const data = (res as any)?.data || res;
+      setAssigneeOptions(Array.isArray(data) ? data.map((u: any) => ({ value: u.name || "", label: u.displayName || u.name || "" })) : []);
+    } finally {
+      setSearchingUsers(false);
+    }
+  }, [projectKey]);
 
   const applyTemplate = (tpl: JiraTemplate) => {
     const f = tpl.fields || {};
@@ -314,16 +352,20 @@ export default function JiraPage() {
   };
 
   const handleSubmit = async () => {
-    if (!summary.trim()) { toast.error("Введите заголовок задачи"); return; }
     if (!isConfigured || !window.api) { toast.error("Jira не настроена"); return; }
+    if (!issueType) { toast.error("Выберите тип задачи"); return; }
+    if (!summary.trim()) { toast.error("Введите заголовок задачи"); return; }
+    if (components.length === 0) { toast.error("Выберите компоненты"); return; }
+    if (rpEnv.length === 0) { toast.error("Выберите окружение"); return; }
+    if (!contractor) { toast.error("Выберите подрядчика"); return; }
     setSubmitting(true);
     try {
       const fields: Record<string, any> = { project: { key: projectKey }, issuetype: { name: issueType }, summary: summary.trim(), priority: { name: priority } };
       if (description.trim()) fields.description = description.trim();
       if (assignee) fields.assignee = { name: assignee };
-      if (contractor) fields.customfield_13342 = { id: contractor };
-      if (rpEnv.length > 0) fields.customfield_13274 = rpEnv.map(id => ({ id }));
-      if (components.length > 0) fields.components = components.map(name => ({ name }));
+      fields.customfield_13342 = { id: contractor };
+      fields.customfield_13274 = rpEnv.map(id => ({ id }));
+      fields.components = components.map(name => ({ name }));
       if (labels.length > 0) fields.labels = labels;
       if (affectedVersion) fields.versions = [{ id: affectedVersion }];
       if (fixVersion) fields.fixVersions = [{ id: fixVersion }];
@@ -344,7 +386,9 @@ export default function JiraPage() {
   const labelClass = "text-xs font-medium text-muted-foreground block mb-1.5";
   const inputClass = "w-full bg-input border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring";
 
-  const summaryParts = [issueType, priority, ...components, projectKey].filter(Boolean);
+  const summaryParts = mode === "quick"
+    ? [issueType, priority, ...components, ...rpEnv.map(id => rpEnvOptions.find(o => o.value === id)?.label || id), contractor ? (contractorOptions.find(o => o.value === contractor)?.label || contractor) : ""].filter(Boolean)
+    : [issueType, priority].filter(Boolean);
 
   if (!isConfigured) {
     return (
@@ -405,7 +449,7 @@ export default function JiraPage() {
                 <div>
                   <label className={labelClass}>Исполнитель</label>
                   <SearchSelect value={profile.assignee} onChange={v => setProfile(p => ({ ...p, assignee: v }))}
-                    options={assigneeOptions} placeholder="Не задан" onSearch={searchUsers} />
+                    options={assigneeOptions} placeholder="Не задан" searching={searchingUsers} onSearch={searchUsers} />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4 mb-4">
@@ -423,7 +467,7 @@ export default function JiraPage() {
                   <label className={labelClass}>Компоненты</label>
                   <MultiSelect values={profile.components} onChange={v => setProfile(p => ({ ...p, components: v }))}
                     options={availableComponents.map(c => ({ value: c.name, label: c.name }))}
-                    placeholder="Не заданы" onOpen={loadComponents} />
+                    placeholder="Не заданы" />
                 </div>
               </div>
               <div className="mb-4">
@@ -542,25 +586,25 @@ export default function JiraPage() {
                     <div>
                       <label className={labelClass}>Исполнитель</label>
                       <SearchSelect value={assignee} onChange={setAssignee} options={assigneeOptions}
-                        placeholder="Найти пользователя..." onSearch={searchUsers} />
+                        placeholder="Найти пользователя..." searching={searchingUsers} onSearch={searchUsers} />
                     </div>
                     <div>
-                      <label className={labelClass}>Подрядчик</label>
+                      <label className={labelClass}>Подрядчик <span className="text-destructive">*</span></label>
                       <SearchSelect value={contractor} onChange={setContractor} options={contractorOptions}
                         placeholder="Выберите подрядчика" onOpen={loadContractorOptions} />
                     </div>
                     <div>
-                      <label className={labelClass}>Окружение РП</label>
+                      <label className={labelClass}>Окружение РП <span className="text-destructive">*</span></label>
                       <MultiSelect values={rpEnv} onChange={setRpEnv} options={rpEnvOptions}
                         placeholder="Выберите окружение" onOpen={loadRpEnvOptions} />
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-4 mb-4">
                     <div>
-                      <label className={labelClass}>Компоненты</label>
+                      <label className={labelClass}>Компоненты <span className="text-destructive">*</span></label>
                       <MultiSelect values={components} onChange={setComponents}
                         options={availableComponents.map(c => ({ value: c.name, label: c.name }))}
-                        placeholder="Выберите компоненты" onOpen={loadComponents} />
+                        placeholder="Выберите компоненты" />
                     </div>
                     <div>
                       <label className={labelClass}>Метки</label>
@@ -571,7 +615,7 @@ export default function JiraPage() {
                       <label className={labelClass}>Затронутые версии</label>
                       <SearchSelect value={affectedVersion} onChange={setAffectedVersion}
                         options={versions.map(v => ({ value: v.id, label: v.name + (v.released ? " (выпущена)" : "") }))}
-                        placeholder="Не выбрана" onOpen={loadVersions} />
+                        placeholder="Не выбрана" />
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-4">
@@ -579,25 +623,25 @@ export default function JiraPage() {
                       <label className={labelClass}>Исправить в версиях</label>
                       <SearchSelect value={fixVersion} onChange={setFixVersion}
                         options={versions.map(v => ({ value: v.id, label: v.name + (v.released ? " (выпущена)" : "") }))}
-                        placeholder="Не выбрана" onOpen={loadVersions} />
+                        placeholder="Не выбрана" />
                     </div>
                   </div>
                 </div>
               )}
 
-              <div className="bg-secondary/50 border border-border rounded-xl px-4 py-3 mb-5 flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Будет создано как: {summaryParts.join(" · ") || "—"}
-                </span>
-                {mode === "quick" && (
+              {mode === "quick" && (
+                <div className="bg-secondary/50 border border-border rounded-xl px-4 py-3 mb-5 flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Будет создано как: {summaryParts.join(" · ") || "—"}
+                  </span>
                   <button onClick={() => setMode("detailed")} className="text-sm text-primary hover:underline">
                     Изменить поля
                   </button>
-                )}
-              </div>
+                </div>
+              )}
 
               <div className="flex gap-3">
-                <button onClick={handleSubmit} disabled={submitting || !summary.trim()}
+                <button onClick={handleSubmit} disabled={submitting || !issueType || !summary.trim() || components.length === 0 || rpEnv.length === 0 || !contractor}
                   className="flex items-center gap-2 bg-primary text-primary-foreground rounded-lg px-5 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity">
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   {submitting ? "Создание..." : "Создать задачу"}
