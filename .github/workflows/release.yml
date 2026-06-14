@@ -101,6 +101,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Build landing page
+        run: npm run renderer:build
+
       - name: Download updater manifest fragments
         uses: actions/download-artifact@v4
         with:
@@ -110,9 +120,9 @@ jobs:
 
       - name: Preserve existing updater manifests
         run: |
-          mkdir -p public-updates/updates
-          curl -fsSL https://tatarinovi.github.io/Focus-Tracker/updates/stable.json -o public-updates/updates/stable.json || true
-          curl -fsSL https://tatarinovi.github.io/Focus-Tracker/updates/beta.json -o public-updates/updates/beta.json || true
+          mkdir -p updater-cache
+          curl -fsSL https://tatarinovi.github.io/Focus-Tracker/updates/stable.json -o updater-cache/stable.json || true
+          curl -fsSL https://tatarinovi.github.io/Focus-Tracker/updates/beta.json -o updater-cache/beta.json || true
 
       - name: Assemble channel manifest
         run: node scripts/assemble-updater-manifest.cjs
@@ -123,11 +133,22 @@ jobs:
           tag_name: ${{ github.ref_name }}
           files: release-manifests/*.json
 
+      - name: Prepare GitHub Pages deploy directory
+        run: |
+          mkdir -p deploy/updates
+          cp renderer-dist/landing.html deploy/index.html
+          cp -r renderer-dist/assets deploy/assets
+          cp renderer-dist/opengraph.jpg deploy/ 2>/dev/null || true
+          cp renderer-dist/favicon.svg deploy/ 2>/dev/null || true
+          cp renderer-dist/apple-touch-icon.svg deploy/ 2>/dev/null || true
+          cp public-updates/updates/*.json deploy/updates/ 2>/dev/null || true
+          cp updater-cache/*.json deploy/updates/ 2>/dev/null || true
+
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: public-updates
+          path: deploy
 
-      - name: Deploy updater manifests to GitHub Pages
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

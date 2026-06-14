@@ -9,6 +9,7 @@ renderer-dist/
 .codex-run/
 src-tauri/target/
 src-tauri/gen/
+.mimocode/
 
 
 # Electron

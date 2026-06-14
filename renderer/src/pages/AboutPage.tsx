@@ -1,45 +1,7 @@
 import { useEffect, useState } from "react";
 import { Target, RefreshCw, ExternalLink, Check } from "lucide-react";
 import { toast } from "sonner";
-
-const CHANGELOG = [
-  {
-    version: "2.0.3",
-    date: "2026-06-14",
-    changes: [
-      "Добавлен безопасный Tauri updater с каналами stable и beta",
-      "Обновления устанавливаются до открытия основного окна",
-      "Перед запуском выполняются миграции локального хранилища",
-    ],
-  },
-  {
-    version: "1.4.5",
-    date: "2026-05-01",
-    changes: [
-      "Исправлен баг с таймером при переключении вкладок",
-      "Улучшена производительность Kanban при большом количестве задач",
-      "Добавлена поддержка Яндекс Телемост в календаре",
-    ],
-  },
-  {
-    version: "1.4.0",
-    date: "2026-04-15",
-    changes: [
-      "Новая функция: компактный режим",
-      "Экспорт истории в CSV",
-      "Улучшен редактор заметок с поддержкой таблиц",
-      "Горячие клавиши для создания задач в Jira",
-    ],
-  },
-  {
-    version: "1.3.2",
-    date: "2026-04-01",
-    changes: [
-      "Исправлена синхронизация с CalDAV",
-      "Улучшены уведомления Pomodoro",
-    ],
-  },
-];
+import { CHANGELOG } from "@/content/site";
 
 type UpdatePhase = "idle" | "checking" | "downloading" | "installing" | "done";
 type UpdateChannel = "stable" | "beta";
