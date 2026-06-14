@@ -285,6 +285,7 @@ function Sidebar({ isNarrow, isOpen, onClose }: { isNarrow: boolean; isOpen: boo
   const integrations = [
     { label: 'Kanban', status: state.config?.kanban?.token ? 'connected' : 'disconnected' },
     { label: 'Календарь', status: state.settings.calendar.url ? 'connected' : 'disconnected' },
+    { label: 'Jira', status: state.settings.jira.url && state.settings.jira.login ? 'connected' : 'disconnected' },
     { label: 'Resonance', status: state.settings.resonance.connected ? 'connected' : 'disconnected' },
   ];
 

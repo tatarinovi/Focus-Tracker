@@ -5,6 +5,7 @@ import {
   ExternalLink,
   Loader2,
   Send,
+  Ticket,
 } from "lucide-react";
 
 interface JiraCreateMeta {
@@ -52,7 +53,7 @@ export default function JiraPage() {
   const [loadingMeta, setLoadingMeta] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const isConfigured = jira.url && jira.login && jira.token;
+  const isConfigured = jira.url && jira.login;
 
   const loadProjectMeta = useCallback(async (key: string) => {
     if (!key || !isConfigured || !window.api) return;
@@ -78,7 +79,7 @@ export default function JiraPage() {
       setAvailableComponents((componentsRes as JiraComponent[]) || []);
       setVersions((versionsRes as JiraVersion[]) || []);
     } catch (err: any) {
-      toast.error(err?.message || "Failed to load project metadata");
+      toast.error(err?.message || "Ошибка загрузки данных проекта");
     } finally {
       setLoadingMeta(false);
     }
@@ -92,15 +93,15 @@ export default function JiraPage() {
 
   const handleSubmit = async () => {
     if (!summary.trim()) {
-      toast.error("Summary is required");
+      toast.error("Введите заголовок задачи");
       return;
     }
     if (!projectKey.trim()) {
-      toast.error("Project key is required");
+      toast.error("Введите ключ проекта");
       return;
     }
     if (!isConfigured || !window.api) {
-      toast.error("Jira is not configured. Set credentials in Settings.");
+      toast.error("Jira не настроена. Укажите учётные данные в настройках.");
       return;
     }
 
@@ -143,7 +144,13 @@ export default function JiraPage() {
 
       const result = await window.api.createJiraIssue({ fields });
       const issueKey = (result as any)?.key || "ISSUE";
-      toast.success(`Issue created: ${issueKey}`);
+      const issueUrl = `${jira.url}/browse/${issueKey}`;
+      try {
+        await navigator.clipboard.writeText(issueUrl);
+        toast.success(`Задача создана: ${issueKey} (ссылка скопирована)`);
+      } catch {
+        toast.success(`Задача создана: ${issueKey}`);
+      }
 
       setSummary("");
       setDescription("");
@@ -175,7 +182,8 @@ export default function JiraPage() {
     <div className="flex h-full">
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex items-center gap-3 px-6 py-3 border-b border-border flex-shrink-0">
-          <h2 className="text-sm font-semibold">Jira — Create Issue</h2>
+          <Ticket className="w-4 h-4 text-muted-foreground" />
+          <h2 className="text-sm font-semibold">Jira — Создание задачи</h2>
           {jira.url && (
             <a
               href={jira.url}
@@ -190,11 +198,10 @@ export default function JiraPage() {
 
         {!isConfigured ? (
           <div className="p-6 text-sm text-muted-foreground">
-            Configure Jira credentials in{" "}
+            Настройте подключение к Jira в{" "}
             <a href="/settings" className="text-primary hover:underline">
-              Settings
-            </a>{" "}
-            to create issues.
+              Настройках
+            </a>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
@@ -203,18 +210,18 @@ export default function JiraPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass}>
-                    Project Key <span className="text-destructive">*</span>
+                    Проект <span className="text-destructive">*</span>
                   </label>
                   <input
                     value={projectKey}
                     onChange={(e) => setProjectKey(e.target.value.toUpperCase())}
-                    placeholder="e.g. PROJ"
+                    placeholder="Например PROJ"
                     className={inputClass}
                   />
                 </div>
                 <div>
                   <label className={labelClass}>
-                    Issue Type <span className="text-destructive">*</span>
+                    Тип задачи <span className="text-destructive">*</span>
                   </label>
                   <select
                     value={issueType}
@@ -233,23 +240,23 @@ export default function JiraPage() {
               {/* Summary */}
               <div>
                 <label className={labelClass}>
-                  Summary <span className="text-destructive">*</span>
+                  Заголовок <span className="text-destructive">*</span>
                 </label>
                 <input
                   value={summary}
                   onChange={(e) => setSummary(e.target.value)}
-                  placeholder="Short description"
+                  placeholder="Кратко опишите задачу..."
                   className={inputClass}
                 />
               </div>
 
               {/* Description */}
               <div>
-                <label className={labelClass}>Description</label>
+                <label className={labelClass}>Описание</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Detailed description (Jira markup supported)"
+                  placeholder="Подробное описание задачи..."
                   rows={6}
                   className={`${inputClass} resize-none`}
                 />
@@ -257,7 +264,7 @@ export default function JiraPage() {
 
               {/* Priority */}
               <div>
-                <label className={labelClass}>Priority</label>
+                <label className={labelClass}>Приоритет</label>
                 <select
                   value={priority}
                   onChange={(e) => setPriority(e.target.value)}
@@ -273,11 +280,10 @@ export default function JiraPage() {
 
               {/* Epic Link */}
               <div>
-                <label className={labelClass}>Epic Link</label>
+                <label className={labelClass}>Epic</label>
                 {loadingMeta ? (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Loading
-                    epics...
+                    <Loader2 className="w-3 h-3 animate-spin" /> Загрузка...
                   </div>
                 ) : (
                   <select
@@ -285,7 +291,7 @@ export default function JiraPage() {
                     onChange={(e) => setEpicLink(e.target.value)}
                     className={inputClass}
                   >
-                    <option value="">None</option>
+                    <option value="">Не выбран</option>
                     {epics.map((epic) => (
                       <option key={epic.key} value={epic.key}>
                         {epic.key} — {epic.summary}
@@ -297,26 +303,25 @@ export default function JiraPage() {
 
               {/* Labels */}
               <div>
-                <label className={labelClass}>Labels</label>
+                <label className={labelClass}>Метки</label>
                 <input
                   value={labels}
                   onChange={(e) => setLabels(e.target.value)}
-                  placeholder="Comma-separated labels"
+                  placeholder="Через запятую"
                   className={inputClass}
                 />
               </div>
 
               {/* Components */}
               <div>
-                <label className={labelClass}>Components</label>
+                <label className={labelClass}>Компоненты</label>
                 {loadingMeta ? (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Loading
-                    components...
+                    <Loader2 className="w-3 h-3 animate-spin" /> Загрузка...
                   </div>
                 ) : availableComponents.length === 0 ? (
                   <p className="text-xs text-muted-foreground py-2">
-                    No components available
+                    Нет доступных компонентов
                   </p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
@@ -340,7 +345,7 @@ export default function JiraPage() {
               {/* Versions */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>Affected Version</label>
+                  <label className={labelClass}>Версия</label>
                   {loadingMeta ? (
                     <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
                       <Loader2 className="w-3 h-3 animate-spin" />
@@ -351,18 +356,18 @@ export default function JiraPage() {
                       onChange={(e) => setAffectedVersion(e.target.value)}
                       className={inputClass}
                     >
-                      <option value="">None</option>
+                      <option value="">Не выбрана</option>
                       {versions.map((v) => (
                         <option key={v.id} value={v.id}>
                           {v.name}
-                          {v.released ? " (released)" : ""}
+                          {v.released ? " (выпущена)" : ""}
                         </option>
                       ))}
                     </select>
                   )}
                 </div>
                 <div>
-                  <label className={labelClass}>Fix Version</label>
+                  <label className={labelClass}>Исправлено в</label>
                   {loadingMeta ? (
                     <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
                       <Loader2 className="w-3 h-3 animate-spin" />
@@ -373,11 +378,11 @@ export default function JiraPage() {
                       onChange={(e) => setFixVersion(e.target.value)}
                       className={inputClass}
                     >
-                      <option value="">None</option>
+                      <option value="">Не выбрана</option>
                       {versions.map((v) => (
                         <option key={v.id} value={v.id}>
                           {v.name}
-                          {v.released ? " (released)" : ""}
+                          {v.released ? " (выпущена)" : ""}
                         </option>
                       ))}
                     </select>
@@ -397,7 +402,7 @@ export default function JiraPage() {
                   ) : (
                     <Send className="w-4 h-4" />
                   )}
-                  {submitting ? "Creating..." : "Create Issue"}
+                  {submitting ? "Создание..." : "Создать задачу"}
                 </button>
               </div>
             </div>

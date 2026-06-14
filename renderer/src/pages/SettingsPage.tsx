@@ -325,7 +325,7 @@ export default function SettingsPage() {
               if (settings.jira.password && settings.jira.password !== '********') {
                 await window.api.saveJiraCredentials({ pass: settings.jira.password });
               }
-              const res = await window.api.getJiraCreateMeta(settings.jira.defaultProject || 'TEST');
+              const res = await window.api.getJiraFields();
               return Boolean(res?.success);
             }} />
           </div>
