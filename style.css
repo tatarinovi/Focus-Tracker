@@ -1,0 +1,11 @@
+@import url("./styles/01-foundation.css");
+@import url("./styles/02-buttons-and-inputs.css");
+@import url("./styles/03-kanban.css");
+@import url("./styles/04-history.css");
+@import url("./styles/05-settings.css");
+@import url("./styles/06-dialogs-and-notifications.css");
+@import url("./styles/07-calendar.css");
+@import url("./styles/08-modes-and-sidepanels.css");
+@import url("./styles/09-motion-and-updates.css");
+@import url("./styles/10-notes.css");
+@import url("./styles/11-misc-overrides.css");

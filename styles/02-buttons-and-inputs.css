@@ -1,0 +1,198 @@
+﻿/* в”Ђв”Ђ РљРЅРѕРїРєРё в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
+.btn-row {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn {
+  flex: 1;
+  padding: 7px 0;
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* РџРµСЂРІРёС‡РЅР°СЏ */
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 10px var(--accent-glow);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-lt);
+}
+
+.btn-primary.danger {
+  background: var(--red);
+  box-shadow: none;
+}
+
+.btn-primary.danger:hover:not(:disabled) {
+  background: #f87171;
+}
+
+/* Р’С‚РѕСЂРёС‡РЅР°СЏ вЂ” РџР°СѓР·Р°/РџСЂРѕРґРѕР»Р¶РёС‚СЊ */
+.btn-secondary {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border-md);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface3);
+}
+
+/* Р’С‚РѕСЂРёС‡РЅР°СЏ danger (РѕСЃС‚Р°РЅРѕРІРєР°) */
+.btn-secondary.danger {
+  border-color: rgba(240, 82, 82, 0.3);
+  color: var(--red);
+}
+
+.btn-secondary.danger:hover:not(:disabled) {
+  background: var(--red-dim);
+  border-color: var(--red);
+}
+
+/* РџРѕРјРѕРґРѕСЂРѕ */
+.btn-pomo {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid var(--accent-bord);
+}
+
+.btn-pomo:hover:not(:disabled) {
+  background: var(--accent-dim);
+}
+
+.btn-pomo.running {
+  background: var(--red-dim);
+  color: var(--red);
+  border-color: rgba(240, 82, 82, 0.3);
+}
+
+/* РћР±РµРґ */
+.btn-lunch {
+  background: var(--green-dim);
+  color: var(--green);
+  border: 1px solid var(--green-bord);
+}
+
+.btn-lunch:hover:not(:disabled) {
+  background: rgba(34, 201, 126, 0.22);
+}
+
+/* РџСЂРёР·СЂР°С‡РЅР°СЏ */
+.btn-ghost {
+  background: transparent;
+  color: var(--text-2);
+  border: 1px solid var(--border);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface2);
+  color: var(--text);
+  border-color: var(--border-md);
+}
+
+.btn-ghost.small {
+  font-size: 11px;
+  padding: 6px;
+  flex-shrink: 0;
+}
+
+.btn-ghost.danger:hover:not(:disabled) {
+  background: var(--red-dim);
+  color: var(--red);
+  border-color: var(--red);
+}
+
+/* Р—РµР»РµРЅР°СЏ вЂ” Р—Р°РІРµСЂС€РµРЅР° */
+.btn-green {
+  background: var(--green);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(34, 201, 126, 0.35);
+}
+
+.btn-green:hover:not(:disabled) {
+  background: #2dd47e;
+}
+
+/* в”Ђв”Ђ РџРѕР»Рµ РєРѕРјРјРµРЅС‚Р°СЂРёСЏ в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
+.task-input {
+  width: 100%;
+  padding: 8px 11px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 12px;
+  font-family: var(--font);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  flex-shrink: 0;
+}
+
+.task-input::placeholder {
+  color: var(--text-3);
+}
+
+.task-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.task-input:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0)
+  }
+
+  20%,
+  60% {
+    transform: translateX(-4px)
+  }
+
+  40%,
+  80% {
+    transform: translateX(4px)
+  }
+}
+
+.task-input.input-error {
+  border-color: var(--red) !important;
+  box-shadow: 0 0 0 3px var(--red-dim) !important;
+  animation: shake 0.35s ease;
+}
+
+/* в”Ђв”Ђ Р Р°Р·РґРµР»РёС‚РµР»СЊ в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
+.divider {
+  height: 1px;
+  background: var(--border);
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+

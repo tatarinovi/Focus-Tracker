@@ -1,0 +1,72 @@
+{
+  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-utils/schema.json",
+  "productName": "Focus Tracker",
+  "version": "2.0.3",
+  "identifier": "com.tasktracker",
+  "build": {
+    "frontendDist": "../renderer-dist",
+    "devUrl": "http://127.0.0.1:3000",
+    "beforeDevCommand": {
+      "script": "vite --config vite.config.mjs --configLoader native --host 127.0.0.1 --port 3000",
+      "wait": false
+    },
+    "beforeBuildCommand": "npm run renderer:build"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Focus Tracker",
+        "width": 1200,
+        "height": 760,
+        "minWidth": 220,
+        "minHeight": 136,
+        "decorations": false,
+        "transparent": false,
+        "center": false,
+        "label": "main",
+        "visible": false
+      },
+      {
+        "title": "Focus Tracker",
+        "label": "splash",
+        "url": "splash.html",
+        "width": 420,
+        "height": 300,
+        "decorations": false,
+        "transparent": false,
+        "resizable": false,
+        "center": true,
+        "visible": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: https:; font-src 'self' data:; connect-src 'self' http://* https://* ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "createUpdaterArtifacts": true,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY",
+      "endpoints": [
+        "https://tatarinovi.github.io/Focus-Tracker/updates/stable.json"
+      ],
+      "windows": {
+        "installMode": "quiet"
+      }
+    }
+  }
+}

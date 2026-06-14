@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com; img-src 'self' data: https:;">
+  <title>Task Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <!-- Заголовок -->
+  <div class="titlebar" id="titlebar">
+    <span class="app-name">⏱ Task Tracker</span>
+    <div class="compact-info" id="compact-info">
+      <span id="compact-timer-val">—</span>
+      <span id="compact-task-name">Нет задачи</span>
+      <div class="compact-buttons">
+        <button class="compact-ctrl-btn" id="compact-btn-pause" title="Пауза">⏸</button>
+        <button class="compact-ctrl-btn compact-stop" id="compact-btn-stop" title="Стоп">■</button>
+      </div>
+    </div>
+    <div class="win-controls">
+      <button class="wc-btn" id="btn-compact" title="Свернуть">▽</button>
+      <button class="wc-btn" id="btn-pin" title="Закрепить/Открепить окно">📌</button>
+      <div class="win-controls-sep"></div>
+      <button class="wc-btn danger" id="btn-close" title="Закрыть">✕</button>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- Вкладки -->
+    <div class="tabs">
+      <button class="tab active" data-tab="timer" data-short="Главн." data-emoji="🏠">Главная</button>
+      <button class="tab" data-tab="calendar" data-short="Календ." data-emoji="📅">Календарь</button>
+      <button class="tab" data-tab="notebook" data-short="Заметки" data-emoji="📝">Заметки</button>
+      <button class="tab" data-tab="history" data-short="История" data-emoji="📋">История</button>
+      <button class="tab" data-tab="settings" data-short="Настр." data-emoji="⚙">Настройки</button>
+    </div>
+
+    <!-- ── ТАЙМЕР ── -->
+    <div class="tab-content active" id="tab-timer">
+
+      <!-- Боковая панель: созвоны (слева, скрыта) -->
+      <div class="side-panel side-panel-left" id="side-panel-left" style="display:none">
+        <div class="kanban-tasks-header kanban-tasks-header-compact">
+          <span class="kanban-tasks-header-title">Ближайшие созвоны</span>
+          <div class="kanban-header-right">
+            <span class="kanban-tasks-count" id="side-calendar-count" style="display:none">0</span>
+            <button class="kanban-filter-btn" id="btn-refresh-calendar-mini" title="Обновить">↻</button>
+          </div>
+        </div>
+        <div class="side-panel-content" id="side-panel-left-content"></div>
+      </div>
+
+      <!-- Левая колонка -->
+      <div class="timer-column">
+
+        <!-- Основной таймер -->
+        <div class="timer-block">
+          <div class="timer-label">Текущая задача</div>
+          <div class="timer-display" id="task-timer">00:00:00</div>
+          <div class="current-task-name" id="current-task-label">Выберите задачу из Kanban →</div>
+        </div>
+
+        <!-- Только Пауза / Продолжить. Запуск — через карточку Kanban -->
+        <div class="btn-row">
+          <button class="btn btn-secondary btn-grow" id="btn-pause" disabled>⏸ Пауза</button>
+          <button class="btn btn-secondary danger" id="btn-stop" disabled>■ Стоп</button>
+        </div>
+
+        <!-- Обед -->
+        <div class="btn-row">
+          <button class="btn btn-lunch" id="btn-lunch">🍽 Обед</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Помодоро -->
+        <div class="timer-block pomodoro">
+          <div class="timer-label" id="pomo-label">🍅 Помодоро</div>
+          <div class="timer-display pomo-display" id="pomo-timer">25:00</div>
+          <div class="pomo-phase" id="pomo-phase">Работа</div>
+        </div>
+
+        <div class="progress-wrap">
+          <div class="progress-bar" id="pomo-progress"></div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-pomo" id="btn-pomo-start">▶ Запустить</button>
+          <button class="btn btn-ghost" id="btn-pomo-reset">↺ Сброс</button>
+        </div>
+
+        <!-- Комментарий к задаче (обязателен перед переключением) -->
+        <input type="text" id="task-comment" class="task-input" placeholder="Комментарий к треку времени..."
+          maxlength="120" />
+
+        <!-- Кнопки раскрытия боковых панелей -->
+        <div class="panel-toggle-row">
+          <button class="btn-panel-toggle" id="btn-left-panel" title="Ближайшие созвоны">⟵ Созвоны</button>
+          <button class="btn-panel-toggle" id="btn-right-panel" title="Kanban board">Доска ⟶</button>
+        </div>
+      </div>
+
+      <!-- Правая колонка: Kanban -->
+      <div class="tasks-column">
+        <div id="kanban-tasks-section" class="kanban-tasks-section">
+        <div class="kanban-tasks-header">
+          <span class="kanban-tasks-header-title">
+            <span class="kanban-tasks-header-title-main">Задачи</span>
+            <span class="kanban-tasks-header-title-sub">из kanban</span>
+          </span>
+          <div class="kanban-header-right">
+            <div class="kanban-header-meta">
+              <span class="kanban-fetch-progress" id="kanban-fetch-progress" style="display:none"></span>
+              <span class="kanban-tasks-count" id="kanban-tasks-count" style="display:none">0</span>
+            </div>
+            <div class="kanban-header-actions">
+              <button class="kanban-filter-btn" id="btn-refresh-tasks" title="Обновить задачи" aria-label="Обновить задачи">↻</button>
+              <button class="kanban-filter-btn" id="btn-kanban-view-toggle" title="Переключить вид" aria-label="Переключить вид">☰</button>
+              <button class="kanban-filter-btn kanban-filter-btn-wide" id="btn-kanban-filter" title="Показать фильтры" aria-label="Показать фильтры">Фильтры</button>
+              <button class="kanban-filter-btn" id="btn-reset-filters" title="Сбросить фильтры" aria-label="Сбросить фильтры">✕</button>
+            </div>
+          </div>
+        </div>
+
+          <!-- Панель фильтров (скрыта по умолчанию) -->
+          <div class="kanban-filter-panel" id="kanban-filter-panel" style="display:none">
+            <input type="text" class="kanban-filter-input" id="filter-name" placeholder="Поиск по названию..." />
+            <div class="kanban-filter-row">
+              <!-- Кастомный мультиселект проектов -->
+              <div class="kanban-multi-select" id="filter-project-container">
+                <div class="kanban-multi-select-trigger">
+                  <span class="kanban-multi-select-placeholder">Все проекты</span>
+                  <span class="kanban-multi-select-arrow">▼</span>
+                </div>
+                <div class="kanban-multi-select-dropdown">
+                  <div class="kanban-multi-select-search">
+                    <input type="text" placeholder="Поиск..." />
+                  </div>
+                  <div class="kanban-multi-select-options"></div>
+                </div>
+              </div>
+              <!-- Мультиселект приоритетов -->
+              <div class="kanban-multi-select" id="filter-priority-container">
+                <div class="kanban-multi-select-trigger">
+                  <span class="kanban-multi-select-placeholder">Все приоритеты</span>
+                  <span class="kanban-multi-select-arrow">▼</span>
+                </div>
+                <div class="kanban-multi-select-dropdown">
+                  <div class="kanban-multi-select-options" id="priority-options"></div>
+                </div>
+              </div>
+            </div>
+            <div class="kanban-filter-row">
+              <label class="kanban-filter-checkbox">
+                <input type="checkbox" id="filter-hide-testing" />
+                <span>Скрыть тестирование</span>
+              </label>
+            </div>
+          </div>
+          <div id="kanban-tasks-list" class="kanban-tasks-list">
+            <div class="kanban-tasks-loader" id="kanban-tasks-loader">
+              <div class="kanban-spinner"></div>
+              <span>Загрузка задач...</span>
+            </div>
+            <div class="kanban-tasks-empty">Авторизуйтесь для загрузки задач</div>
+          </div>
+
+          <!-- Мини-доска Kanban (скрыта по умолчанию) -->
+          <div class="kanban-tasks-loader" id="kanban-board-loader" style="display:none">
+            <div class="kanban-spinner"></div>
+            <span>Загрузка задач...</span>
+          </div>
+          <div id="kanban-board" class="kanban-board">
+            <div class="kanban-board-column" data-stage="new">
+              <div class="kanban-board-column-header">Новые</div>
+              <div class="kanban-board-column-tasks" data-stage="new"></div>
+            </div>
+            <div class="kanban-board-column" data-stage="in_progress">
+              <div class="kanban-board-column-header">В работе</div>
+              <div class="kanban-board-column-tasks" data-stage="in_progress"></div>
+            </div>
+            <div class="kanban-board-column" data-stage="ready_for_test">
+              <div class="kanban-board-column-header">Готово к тесту</div>
+              <div class="kanban-board-column-tasks" data-stage="ready_for_test"></div>
+            </div>
+            <div class="kanban-board-column" data-stage="in_testing">
+              <div class="kanban-board-column-header">В тесте</div>
+              <div class="kanban-board-column-tasks" data-stage="in_testing"></div>
+            </div>
+            <div class="kanban-board-column" data-stage="done">
+              <div class="kanban-board-column-header">Выполнены</div>
+              <div class="kanban-board-column-tasks" data-stage="done"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── ИСТОРИЯ ── -->
+    <div class="tab-content" id="tab-history">
+      <div class="history-header">
+        <span>Сегодня</span>
+        <div class="history-view-toggle">
+          <button class="history-view-btn active" data-view="list">☰</button>
+          <button class="history-view-btn" data-view="timeline">⏱</button>
+        </div>
+        <span id="history-total">Итого: 0:00:00</span>
+      </div>
+      <div class="history-list" id="history-list">
+        <div class="history-empty">Пока нет задач. Начни трекинг!</div>
+      </div>
+      <div class="btn-row btn-row-spaced">
+        <button class="btn btn-ghost small" id="btn-open-file">📂 Открыть файл</button>
+        <button class="btn btn-ghost small danger" id="btn-clear-history">🗑 Очистить</button>
+      </div>
+    </div>
+
+    <!-- ── КАЛЕНДАРЬ ── -->
+    <div class="tab-content" id="tab-calendar">
+      <div class="calendar-header">
+        <span>Расписание</span>
+        <div class="calendar-period-select" id="calendar-period">
+          <button data-period="today" class="active">Сегодня</button>
+          <button data-period="tomorrow">Завтра</button>
+          <button data-period="3days">3 дня</button>
+          <button data-period="week">Неделя</button>
+          <button data-period="month">Месяц</button>
+        </div>
+        <button class="btn btn-ghost small" id="btn-refresh-calendar">↻</button>
+      </div>
+      <div class="calendar-loading" id="calendar-loading" style="display:none">
+        <div class="kanban-spinner"></div>
+        <span>Загрузка календаря...</span>
+      </div>
+      <div class="calendar-list" id="calendar-list">
+        <div class="calendar-empty">Нет запланированных событий</div>
+      </div>
+      <div class="calendar-no-ical" id="calendar-no-ical" style="display:none">
+        <div class="calendar-empty">Настройте iCal URL в разделе "Настройки"</div>
+      </div>
+    </div>
+
+    <!-- ── Модальное окно события календаря ── -->
+    <div class="dialog-overlay" id="calendar-event-dialog-overlay">
+      <div class="dialog-box calendar-event-dialog">
+        <div class="calendar-event-dialog-content">
+          <div class="calendar-event-dialog-title" id="calendar-event-title"></div>
+          <div class="calendar-event-dialog-time" id="calendar-event-time"></div>
+          <div class="calendar-event-dialog-duration" id="calendar-event-duration"></div>
+          <div class="calendar-event-dialog-location" id="calendar-event-location"></div>
+          <div class="calendar-event-dialog-description" id="calendar-event-description"></div>
+          <div class="calendar-event-dialog-rsvp-wrap" id="calendar-event-dialog-rsvp"></div>
+
+          <div class="calendar-event-task-link-wrap" id="calendar-event-task-link-wrap" style="display:none">
+            <span class="calendar-event-task-label" id="calendar-event-task-label">Задача: Поиск...</span>
+            <button class="btn btn-ghost small" id="calendar-event-go-task" style="display:none">Перейти</button>
+          </div>
+
+        </div>
+        <div class="calendar-event-dialog-buttons">
+          <button class="btn btn-primary" id="calendar-event-join">Подключиться</button>
+          <button class="btn btn-ghost" id="calendar-event-close">Закрыть</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ЗАМЕТКИ ── -->
+    <div class="tab-content" id="tab-notebook">
+      <div class="notes-header">
+        <span class="notes-title">Заметки</span>
+        <div class="notes-header-actions">
+          <button class="btn btn-ghost" id="btn-notes-folder" title="Открыть папку с заметками">📁</button>
+          <button class="btn btn-primary" id="btn-new-note">+</button>
+        </div>
+      </div>
+      <div class="notes-grid" id="notes-grid"></div>
+      <div class="notes-empty" id="notes-empty">
+        <span>Нет заметок</span>
+        <span class="notes-empty-sub">Нажмите «+» чтобы создать</span>
+      </div>
+    </div>
+
+    <!-- ── НАСТРОЙКИ ── -->
+    <div class="tab-content" id="tab-settings">
+      <!-- Аккордеон: Kanban -->
+      <div class="accordion">
+        <button class="accordion-header" data-accordion="auth">
+          <span>Kanban</span>
+          <span class="accordion-arrow">▼</span>
+        </button>
+        <div class="accordion-content" id="accordion-auth">
+          <div class="settings-group">
+            <label>Kanban</label>
+            <div class="kanban-auth-row" id="kanban-auth-row">
+              <button class="btn btn-primary" id="btn-kanban-login">🚪 Войти в Kanban</button>
+            </div>
+          </div>
+          <div class="settings-group">
+            <label class="settings-checkbox">
+              <input type="checkbox" id="settings-send-lunch" checked />
+              <span>Отправлять сообщение об обеде</span>
+            </label>
+          </div>
+          <div class="settings-group settings-group-flex" id="chats-container">
+            <label>
+              Чаты для отправки
+              <span class="help-btn" id="btn-bot-help" title="Как добавить бота">?</span>
+            </label>
+            <div id="chats-list" class="chats-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Аккордеон: Календарь -->
+      <div class="accordion">
+        <button class="accordion-header" data-accordion="calendar">
+          <span>Календарь</span>
+          <span class="accordion-arrow">▼</span>
+        </button>
+        <div class="accordion-content" id="accordion-calendar">
+          <div class="settings-group">
+            <label>CalDAV URL календаря</label>
+            <input type="text" id="settings-ical-url" class="settings-input"
+              placeholder="https://caldav.yandex.ru/calendars/user/events-12345/" />
+            <div class="settings-help">Прямая ссылка на календарь в Yandex CalDAV</div>
+          </div>
+          <div class="settings-group">
+            <label>Логин Яндекса</label>
+            <input type="email" id="settings-caldav-user" class="settings-input" placeholder="user@yandex.ru"
+              autocomplete="off" />
+          </div>
+          <div class="settings-group">
+            <label>Пароль приложения</label>
+            <input type="password" id="settings-caldav-pass" class="settings-input"
+              placeholder="Пароль приложения Yandex" autocomplete="new-password" />
+            <div class="settings-help">Создается в настройках Яндекс ID (Безопасность → Пароли приложений)</div>
+          </div>
+          <div class="settings-group">
+            <label>Автообновление календаря</label>
+            <select id="settings-cal-refresh" class="settings-input">
+              <option value="15">Каждые 15 минут</option>
+              <option value="30">Каждые 30 минут</option>
+              <option value="60">Каждый 1 час</option>
+              <option value="720">Каждые 12 часов</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Аккордеон: Jira -->
+      <div class="accordion">
+        <button class="accordion-header" data-accordion="jira">
+          <span>Jira</span>
+          <span class="accordion-arrow">▼</span>
+        </button>
+        <div class="accordion-content" id="accordion-jira">
+          <div class="settings-group">
+            <label>Логин (Email) в Jira</label>
+            <input type="email" id="settings-jira-user" class="settings-input" placeholder="user@example.com"
+              autocomplete="off" />
+          </div>
+          <div class="settings-group">
+            <label>Пароль от Jira (или API Token)</label>
+            <input type="password" id="settings-jira-pass" class="settings-input" placeholder="Ваш пароль"
+              autocomplete="new-password" />
+          </div>
+          <div class="settings-group">
+            <label>Хоткей для создания задачи</label>
+            <input type="text" id="settings-jira-hotkey" class="settings-input"
+              placeholder="Например: CommandOrControl+Shift+J" autocomplete="off" />
+            <div class="settings-help">Нажмите сохранение и перезапустите трекер для применения</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Аккордеон: Звуки -->
+      <div class="accordion">
+        <button class="accordion-header" data-accordion="sounds">
+          <span>Звуки</span>
+          <span class="accordion-arrow">▼</span>
+        </button>
+        <div class="accordion-content" id="accordion-sounds">
+          <div class="settings-group">
+            <label>Громкость уведомлений</label>
+            <div class="settings-inline-row">
+              <input type="range" id="settings-sound-volume" class="settings-range settings-range-grow" min="0" max="100" value="50" />
+              <span id="settings-sound-volume-val" class="settings-inline-value">50%</span>
+            </div>
+            <div class="settings-help">Влияет на все звуки (помодоро, созвоны и т.д.)</div>
+          </div>
+          <div class="settings-group">
+            <label>Смена задачи</label>
+            <select id="settings-sound-task" class="settings-input">
+              <option value="">Без звука</option>
+              <option value="task_switch.mp3">task_switch.mp3</option>
+            </select>
+          </div>
+          <div class="settings-group">
+            <label>Начало работы (Помодоро)</label>
+            <select id="settings-sound-work" class="settings-input">
+              <option value="">Без звука</option>
+              <option value="pomodoro_work.mp3">pomodoro_work.mp3</option>
+            </select>
+          </div>
+          <div class="settings-group">
+            <label>Отдых (Помодоро)</label>
+            <select id="settings-sound-rest" class="settings-input">
+              <option value="">Без звука</option>
+              <option value="pomodoro_rest.mp3">pomodoro_rest.mp3</option>
+            </select>
+          </div>
+          <div class="settings-group">
+            <label>Начало созвона</label>
+            <select id="settings-sound-meet" class="settings-input">
+              <option value="">Без звука</option>
+              <option value="meeting_start.mp3">meeting_start.mp3</option>
+            </select>
+          </div>
+          <div class="settings-group">
+            <label>Создание задачи в Jira</label>
+            <select id="settings-sound-jira" class="settings-input">
+              <option value="">Без звука</option>
+              <option value="success.mp3">success.mp3</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Аккордеон: Визуал -->
+      <div class="accordion">
+        <button class="accordion-header" data-accordion="visual">
+          <span>Визуал</span>
+          <span class="accordion-arrow">▼</span>
+        </button>
+        <div class="accordion-content" id="accordion-visual">
+          <div class="settings-group">
+            <label>Внешний вид</label>
+            <div class="appearance-row">
+              <button class="btn btn-ghost" id="btn-theme-light">☀️ Светлая</button>
+              <button class="btn btn-ghost" id="btn-theme-dark">🌙 Тёмная</button>
+            </div>
+          </div>
+          <div class="settings-group">
+            <label for="settings-accent-color">Акцентный цвет</label>
+            <div class="color-picker-row">
+              <input type="color" id="settings-accent-color" class="color-picker" value="#7b5cf5" />
+              <span class="color-picker-label">Выберите цвет интерфейса</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Аккордеон: Обновления -->
+      <div class="accordion">
+        <button class="accordion-header" data-accordion="updates">
+          <span>Обновления</span>
+          <span class="accordion-arrow">▼</span>
+        </button>
+        <div class="accordion-content" id="accordion-updates">
+
+          <!-- Версия -->
+          <div class="settings-group">
+            <label>Версия приложения</label>
+            <div class="about-version-row">
+              <span id="about-version" class="about-version-badge">—</span>
+              <a href="#" class="about-source-link" id="about-source-link">Исходный код ↗</a>
+            </div>
+          </div>
+
+          <!-- Канал обновлений -->
+          <div class="settings-group">
+            <label>Канал обновлений</label>
+            <div class="channel-toggle">
+              <button class="btn btn-ghost channel-btn active" data-channel="stable">Stable</button>
+              <button class="btn btn-ghost channel-btn" data-channel="beta">Beta</button>
+            </div>
+          </div>
+
+          <!-- Кнопка проверки + статус -->
+          <div class="settings-group">
+            <button class="btn btn-secondary" id="btn-check-updates">Проверить обновления</button>
+            <div id="update-check-status" class="update-status-text"></div>
+          </div>
+
+          <!-- Блок "есть обновление" (скрыт по умолчанию) -->
+          <div id="update-available-block" class="update-card" style="display:none">
+            <div class="update-card-header">
+              <span class="update-badge">Доступно</span>
+              <span id="update-new-version"></span>
+            </div>
+            <div id="update-changelog" class="update-changelog"></div>
+            <button class="btn btn-primary" id="btn-download-update">Скачать и установить</button>
+            <div id="update-progress-wrap" class="update-progress-wrap" style="display:none">
+              <div class="update-progress-bar">
+                <div id="update-progress-fill" class="update-progress-fill" style="width:0%"></div>
+              </div>
+              <span id="update-progress-pct" class="update-progress-pct">0%</span>
+            </div>
+          </div>
+
+          <!-- Автопроверка при запуске -->
+          <div class="settings-group">
+            <label class="settings-checkbox">
+              <input type="checkbox" id="settings-auto-update" checked />
+              <span>Проверять обновления при запуске</span>
+            </label>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-save-settings">💾 Сохранить</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── ДИАЛОГИ ── -->
+
+  <div class="dialog-overlay" id="close-dialog-overlay">
+    <div class="dialog-box">
+      <div class="dialog-title">Завершение рабочего дня</div>
+      <div class="dialog-message">Ты закончил рабочий день в Bitrix?</div>
+      <div class="dialog-detail">Не забудь отметить выполненные задачи и закрыть рабочий день.</div>
+      <div class="dialog-buttons">
+        <button class="btn btn-ghost" id="close-no">Вернуться</button>
+        <button class="btn btn-primary" id="close-yes">Да, закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-overlay" id="clear-dialog-overlay">
+    <div class="dialog-box">
+      <div class="dialog-title">Удалить историю</div>
+      <div class="dialog-message">Удалить всю историю за сегодня?</div>
+      <div class="dialog-detail">Это действие невозможно отменить.</div>
+      <div class="dialog-buttons">
+        <button class="btn btn-ghost" id="clear-no">Отмена</button>
+        <button class="btn btn-primary danger" id="clear-yes">Удалить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Диалог подтверждения перехода на обед -->
+  <div class="dialog-overlay" id="lunch-confirm-dialog-overlay">
+    <div class="dialog-box">
+      <div class="dialog-title">Уйти на обед?</div>
+      <div class="dialog-message">Текущая задача будет сохранена и запустится таймер обеда.</div>
+      <div class="dialog-detail">В Telegram будет отправлено уведомление «ушёл на обед».</div>
+      <div class="dialog-buttons">
+        <button class="btn btn-ghost" id="lunch-confirm-no">Отмена</button>
+        <button class="btn btn-lunch" id="lunch-confirm-yes">🍽 Уйти на обед</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Диалог возвращения с обеда -->
+  <div class="dialog-overlay" id="lunch-end-dialog-overlay">
+    <div class="dialog-box">
+      <div class="dialog-title">Возвращение с обеда</div>
+      <div class="dialog-message">Вы вернулись с обеда?</div>
+      <div class="dialog-detail">Нажимая «Да», вы отправите уведомление в Telegram о возвращении.</div>
+      <div class="dialog-buttons">
+        <button class="btn btn-ghost" id="lunch-end-no">Нет</button>
+        <button class="btn btn-primary" id="lunch-end-yes">Да, вернулся</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Диалог переключения задачи (новый) -->
+  <div class="dialog-overlay" id="switch-task-dialog-overlay">
+    <div class="dialog-box">
+      <div class="dialog-title">Переключить задачу?</div>
+      <div class="dialog-message">
+        Работа по задаче «<span id="switch-task-current-name" class="dialog-emphasis">...</span>» завершена или
+        требуется переключиться на другую задачу? Если работа по задаче закончена, то задача будет переведена в статус
+        "Выполнена".
+      </div>
+      <div class="dialog-detail">
+        Запустить таймер для «<span id="switch-task-new-name" class="dialog-accent">...</span>»?
+      </div>
+      <div class="dialog-buttons">
+        <button class="btn btn-ghost" id="switch-task-no">Отмена</button>
+        <button class="btn btn-green" id="switch-task-complete">Завершена</button>
+        <button class="btn btn-primary" id="switch-task-yes">Переключиться</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-overlay" id="stop-task-dialog-overlay">
+    <div class="dialog-box">
+      <div class="dialog-title">Остановить задачу</div>
+      <div class="dialog-message">
+        Что сделать с задачей «<span id="stop-task-current-name" class="dialog-emphasis">...</span>»?
+      </div>
+      <div class="dialog-detail">
+        Можно закрыть задачу в Kanban или просто остановить таймер и списать уже накопленное время.
+      </div>
+      <div class="dialog-buttons dialog-buttons-stack">
+        <button class="btn btn-primary" id="stop-task-complete">Закрыть задачу</button>
+        <button class="btn btn-ghost" id="stop-task-only">Просто остановить таймер</button>
+        <button class="btn btn-ghost" id="stop-task-cancel">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-overlay" id="login-dialog-overlay">
+    <div class="dialog-box login-dialog">
+      <div class="dialog-title">Вход в Kanban</div>
+      <div class="login-form">
+        <input type="text" id="login-email" class="settings-input" placeholder="Email" />
+        <input type="password" id="login-password" class="settings-input" placeholder="Пароль" />
+      </div>
+      <div class="dialog-buttons">
+        <button class="btn btn-ghost" id="login-cancel">Отмена</button>
+        <button class="btn btn-primary" id="login-submit">Войти</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-overlay" id="logout-dialog-overlay">
+    <div class="dialog-box">
+      <div class="dialog-title">Выход из Kanban</div>
+      <div class="dialog-message">Вы авторизованы как <span id="logout-username"
+          class="dialog-accent">...</span>. Уверены, что хотите выйти?</div>
+      <div class="dialog-buttons">
+        <button class="btn btn-ghost" id="logout-cancel">Отмена</button>
+        <button class="btn btn-primary" id="logout-confirm">Выйти</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-overlay" id="task-detail-dialog-overlay">
+    <div class="dialog-box task-detail-dialog">
+      <div class="dialog-title" id="task-detail-title">Задача</div>
+      <div class="task-detail-content" id="task-detail-content">
+        <div class="task-detail-meta">
+          <span class="task-detail-id" id="task-detail-id"></span>
+          <span class="task-detail-priority" id="task-detail-priority"></span>
+          <span class="task-detail-status" id="task-detail-status"></span>
+          <span class="task-detail-deadline" id="task-detail-deadline"></span>
+        </div>
+        <div class="task-detail-description" id="task-detail-description"></div>
+        <div class="task-detail-checklist" id="task-detail-checklist"></div>
+      </div>
+      <div class="dialog-buttons">
+        <button class="btn btn-ghost" id="task-detail-close">Закрыть</button>
+        <button class="btn btn-primary" id="task-detail-start">Начать задачу</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Диалог: доступно обновление -->
+  <div class="dialog-overlay" id="update-dialog-overlay">
+    <div class="dialog-box">
+      <div class="dialog-title">Доступно обновление</div>
+      <div class="dialog-message">
+        Вышла новая версия <strong id="update-dialog-version"></strong>
+      </div>
+      <div id="update-dialog-changelog" class="update-changelog update-dialog-changelog"></div>
+      <div id="update-dialog-progress-wrap" class="update-progress-wrap" style="display:none">
+        <div class="update-progress-bar">
+          <div id="update-dialog-progress-fill" class="update-progress-fill" style="width:0%"></div>
+        </div>
+        <span id="update-dialog-progress-pct" class="update-progress-pct">0%</span>
+      </div>
+      <div class="dialog-buttons">
+        <button class="btn btn-ghost" id="update-dialog-later">Позже</button>
+        <button class="btn btn-primary" id="update-dialog-download">Установить</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-overlay" id="bot-help-dialog-overlay">
+    <div class="dialog-box">
+      <div class="dialog-title">Как добавить бота в беседу</div>
+      <div class="dialog-message">
+        <ol class="dialog-steps">
+          <li>Откройте Telegram и перейдите в нужную беседу</li>
+          <li>Нажмите на название беседы вверху</li>
+          <li>Выберите "Добавить участников"</li>
+          <li>Введите username бота: <strong>@имя_вашего_бота</strong></li>
+          <li>Нажмите "Добавить" и подтвердите</li>
+        </ol>
+        <p class="dialog-footnote">
+          Бот будет получать уведомления об уходе на обед и возвращении.<br />
+          ID чата можно получить, написав боту /start в беседе.
+        </p>
+      </div>
+      <div class="dialog-buttons">
+        <button class="btn btn-primary" id="bot-help-close">Понятно</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── АВТОСИНХРОНИЗАЦИЯ КАЛЕНДАРЯ ── -->
+  <div class="dialog-overlay" id="meeting-sync-dialog-overlay">
+    <div class="dialog-box">
+      <div class="dialog-title">Начать задачу?</div>
+      <div class="dialog-message dialog-message-spaced">
+        Найдена подходящая задача в таблице: <br />
+        <strong id="meeting-sync-task-name" class="dialog-emphasis dialog-block"></strong>
+      </div>
+      <div class="dialog-buttons dialog-buttons-stack">
+        <button class="btn btn-primary" id="meeting-sync-yes">Да, открыть ссылку и начать
+          таймер</button>
+        <button class="btn btn-ghost" id="meeting-sync-no">Нет, просто открыть ссылку</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── МОДАЛКА ЗАМЕТКИ ── -->
+  <div class="dialog-overlay" id="note-dialog-overlay">
+    <div class="dialog note-dialog">
+      <div class="note-dialog-header">
+        <input type="text" id="note-title-input" class="note-title-input" placeholder="Название заметки"
+          spellcheck="false" />
+        <div class="note-toolbar">
+          <button class="btn btn-ghost note-mode-btn active" id="note-btn-edit">Ред.</button>
+          <button class="btn btn-ghost note-mode-btn" id="note-btn-view">Вид</button>
+          <button class="btn btn-ghost" id="note-btn-close" title="Сохранить и закрыть">✕</button>
+        </div>
+      </div>
+      <div class="note-dialog-body">
+        <div class="note-md-toolbar" id="note-md-toolbar">
+          <button class="note-md-btn" data-md="bold" title="Жирный (Ctrl+B)"><b>B</b></button>
+          <button class="note-md-btn" data-md="italic" title="Курсив (Ctrl+I)"><i>I</i></button>
+          <button class="note-md-btn" data-md="strike" title="Зачёркнутый"><s>S</s></button>
+          <button class="note-md-btn" data-md="code" title="Код"><code class="note-code-icon">&lt;&gt;</code></button>
+          <div class="note-md-sep"></div>
+          <button class="note-md-btn" data-md="h1" title="Заголовок"># H</button>
+          <button class="note-md-btn" data-md="quote" title="Цитата">❝</button>
+          <button class="note-md-btn" data-md="list" title="Список">• —</button>
+          <button class="note-md-btn" data-md="olist" title="Нумерованный список">1.</button>
+          <div class="note-md-sep"></div>
+          <button class="note-md-btn" data-md="link" title="Ссылка (Ctrl+K)">🔗</button>
+          <button class="note-md-btn" data-md="table" title="Таблица">▦</button>
+          <button class="note-md-btn" data-md="check" title="Чек-бокс">☑</button>
+        </div>
+        <textarea class="note-textarea" id="note-textarea"
+          placeholder="Начните писать... (поддерживается Markdown)"></textarea>
+        <div class="note-preview markdown-body" id="note-preview"></div>
+      </div>
+      <div class="note-dialog-footer">
+        <div class="note-footer-left">
+          <button class="btn btn-ghost danger" id="note-btn-delete">Удалить</button>
+          <span class="note-meta" id="note-meta"></span>
+        </div>
+        <button class="btn btn-primary" id="note-btn-save">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="renderer.js"></script>
+</body>
+
+</html>

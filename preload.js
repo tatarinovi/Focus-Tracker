@@ -1,0 +1,83 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+console.info('[Startup] preload loaded');
+
+contextBridge.exposeInMainWorld('api', {
+  saveTask: (task) => ipcRenderer.invoke('save-task', task),
+  loadTasks: () => ipcRenderer.invoke('load-tasks'),
+  getDataPath: () => ipcRenderer.invoke('get-data-path'),
+  openDataPath: () => ipcRenderer.invoke('open-data-path'),
+  clearTodayTasks: () => ipcRenderer.invoke('clear-today-tasks'),
+  notify: (title, body) => ipcRenderer.send('notify', { title, body }),
+  closeApp: () => ipcRenderer.send('close-app'),
+  loadConfig: () => ipcRenderer.invoke('load-config'),
+  saveConfig: (config) => ipcRenderer.invoke('save-config', config),
+  getCalendarCredentials: () => ipcRenderer.invoke('get-calendar-credentials'),
+  saveCalendarCredentials: (creds) => ipcRenderer.invoke('save-calendar-credentials', creds),
+  getJiraCredentials: () => ipcRenderer.invoke('get-jira-credentials'),
+  saveJiraCredentials: (creds) => ipcRenderer.invoke('save-jira-credentials', creds),
+  getJiraComponents: (projectKey) => ipcRenderer.invoke('get-jira-components', projectKey),
+  getJiraVersions: (projectKey) => ipcRenderer.invoke('get-jira-versions', projectKey),
+  getJiraFields: () => ipcRenderer.invoke('get-jira-fields'),
+  getJiraLabels: (query) => ipcRenderer.invoke('get-jira-labels', query),
+  getJiraCreateMeta: (projectKey) => ipcRenderer.invoke('get-jira-createmeta', projectKey),
+  getJiraEpics: (projectKey) => ipcRenderer.invoke('get-jira-epics', projectKey),
+  loadJiraTemplates: () => ipcRenderer.invoke('load-jira-templates'),
+  saveJiraTemplate: (template) => ipcRenderer.invoke('save-jira-template', template),
+  deleteJiraTemplate: (name) => ipcRenderer.invoke('delete-jira-template', name),
+  createJiraIssue: (payload) => ipcRenderer.invoke('create-jira-issue', payload),
+  uploadJiraAttachments: (issueKey, attachments) => ipcRenderer.invoke('upload-jira-attachments', issueKey, attachments),
+  closeJiraWindow: () => ipcRenderer.invoke('close-jira-window'),
+  setAlwaysOnTop: (value) => ipcRenderer.invoke('set-always-on-top', value),
+  isAlwaysOnTop: () => ipcRenderer.invoke('is-always-on-top'),
+  kanbanLogin: (email, password) => ipcRenderer.invoke('kanban-login', { email, password }),
+  kanbanGetUserInfo: (token) => ipcRenderer.invoke('kanban-get-user-info', { token }),
+  kanbanGetTasks: (userId, token) => ipcRenderer.invoke('kanban-get-tasks', { userId, token }),
+  kanbanGetTask: (taskId, token) => ipcRenderer.invoke('kanban-get-task', { taskId, token }),
+  kanbanUpdateTaskStage: (taskId, stageId, token) => ipcRenderer.invoke('kanban-update-task-stage', { taskId, stageId, token }),
+  kanbanLogWork: (taskId, begin, comment, time, token) => ipcRenderer.invoke('kanban-log-work', { taskId, begin, comment, time, token }),
+  getKanbanBaseUrl: () => ipcRenderer.invoke('get-kanban-base-url'),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  fetchCalendarCalDav: (url) => ipcRenderer.invoke('fetch-calendar-caldav', url),
+  updateCalendarRsvp: (data) => ipcRenderer.invoke('update-calendar-rsvp', data),
+  showMeetingReminderWindow: (data) => ipcRenderer.invoke('show-meeting-reminder', data),
+  getWindowBounds:    ()        => ipcRenderer.invoke('get-window-bounds'),
+  setWindowBounds:    (b)       => ipcRenderer.invoke('set-window-bounds', b),
+  loadWindowState:    ()        => ipcRenderer.invoke('load-window-state'),
+  saveWindowState:    (state)   => ipcRenderer.invoke('save-window-state', state),
+  minimizeWindow:     ()        => ipcRenderer.invoke('win:minimize'),
+  toggleMaximize:     ()        => ipcRenderer.invoke('win:toggle-maximize'),
+  isWindowMaximized:  ()        => ipcRenderer.invoke('win:is-maximized'),
+  getAppVersion:      ()        => ipcRenderer.invoke('get-app-version'),
+  checkUpdates:       (channel) => ipcRenderer.invoke('check-updates', channel),
+  downloadUpdate:     (url)     => ipcRenderer.invoke('download-update', url),
+  onUpdateProgress:   (cb)      => ipcRenderer.on('update-progress', (_e, pct) => cb(pct)),
+  loadNotes:          ()        => ipcRenderer.invoke('load-notes'),
+  saveNote:           (note)    => ipcRenderer.invoke('save-note', note),
+  deleteNote:         (id)      => ipcRenderer.invoke('delete-note', id),
+  openNotesFolder:    ()        => ipcRenderer.invoke('open-notes-folder'),
+  onHotkeyError:      (cb)      => ipcRenderer.on('hotkey-error', (_e, key) => cb(key)),
+  onReminderStartTask:(cb)      => ipcRenderer.on('reminder-start-task', (_e, task) => cb(task)),
+  onStopAllSounds:    (cb)      => ipcRenderer.on('stop-all-sounds', cb),
+});
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  platform: process.platform,
+  isElectron: true,
+  versions: {
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    node: process.versions.node,
+  },
+  windowControls: {
+    minimize: () => ipcRenderer.invoke('win:minimize'),
+    toggleMaximize: () => ipcRenderer.invoke('win:toggle-maximize'),
+    close: () => ipcRenderer.invoke('win:close'),
+    isMaximized: () => ipcRenderer.invoke('win:is-maximized'),
+    onMaximizeChange: (cb) => {
+      const handler = (_e, isMaximized) => cb(isMaximized);
+      ipcRenderer.on('win:maximize-changed', handler);
+      return () => ipcRenderer.removeListener('win:maximize-changed', handler);
+    },
+  },
+});

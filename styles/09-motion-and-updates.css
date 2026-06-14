@@ -1,0 +1,220 @@
+﻿/* в”Ђв”Ђ РђРЅРёРјР°С†РёРё в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
+
+/* Р‘Р°Р·РѕРІС‹Рµ keyframes */
+@keyframes item-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tab-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes panel-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes panel-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* РЎРјРµРЅР° РІРєР»Р°РґРѕРє */
+.tab-content.active {
+  animation: tab-in 0.16s ease both;
+}
+
+/* РћРІРµСЂР»РµР№ РґРёР°Р»РѕРіР° */
+.dialog-overlay.visible {
+  animation: overlay-in 0.14s ease both;
+}
+
+/* РљР°СЂС‚РѕС‡РєРё Kanban */
+.kanban-task-item {
+  transition: background 0.15s, border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  animation: item-in 0.13s ease both;
+}
+
+.kanban-task-item:hover {
+  transform: translateX(2px);
+}
+
+/* РСЃС‚РѕСЂРёСЏ */
+.history-item {
+  animation: item-in 0.13s ease both;
+}
+
+/* Р’РєР»Р°РґРєР° РљР°Р»РµРЅРґР°СЂСЊ: СЃРѕР±С‹С‚РёСЏ */
+.calendar-event {
+  animation: item-in 0.13s ease both;
+}
+
+/* РњРёРЅРё-РїР°РЅРµР»СЊ РЎРѕР·РІРѕРЅС‹ */
+.side-calendar-item {
+  animation: item-in 0.13s ease both;
+}
+
+/* Compact: Р°РЅРёРјР°С†РёСЏ РїРѕСЏРІР»РµРЅРёСЏ compact-info */
+body.compact .compact-info {
+  animation: tab-in 0.14s ease both;
+}
+
+/* в”Ђв”Ђ РћР±РЅРѕРІР»РµРЅРёСЏ / Рћ РїСЂРѕРіСЂР°РјРјРµ в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
+
+.about-version-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.about-version-badge {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.about-source-link {
+  font-size: 10px;
+  color: var(--text-3);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.about-source-link:hover {
+  color: var(--accent);
+}
+
+.channel-toggle {
+  display: flex;
+  gap: 6px;
+}
+
+.channel-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.update-status-text {
+  font-size: 10px;
+  color: var(--text-3);
+  margin-top: 4px;
+  min-height: 14px;
+}
+
+.update-card {
+  background: var(--surface);
+  border: 1px solid var(--accent-bord);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.update-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.update-badge {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.update-changelog {
+  font-size: 11px;
+  color: var(--text-2);
+  white-space: pre-line;
+  line-height: 1.5;
+}
+
+.update-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.update-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--surface2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.update-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.update-progress-pct {
+  font-size: 10px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  min-width: 30px;
+  text-align: right;
+}
+
+.update-dialog-changelog {
+  margin: 8px 0;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  background: var(--surface2);
+  border-radius: var(--r-sm);
+}
+

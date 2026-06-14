@@ -1,0 +1,437 @@
+﻿/* в”Ђв”Ђ Compact mode в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
+.compact-info {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 8px 8px;
+  width: 100%;
+  flex: 1;
+}
+
+body.compact .compact-info {
+  display: flex;
+}
+
+body.compact .container {
+  display: none;
+}
+
+body.compact .app-name {
+  display: none;
+}
+
+body.compact .win-controls {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  bottom: auto;
+  gap: 2px;
+  z-index: 10;
+  -webkit-app-region: no-drag;
+}
+
+body.compact .win-controls .wc-btn:not(#btn-compact),
+body.compact .win-controls .win-controls-sep {
+  display: none;
+}
+
+body.compact #btn-compact {
+  font-size: 0 !important;
+  width: 18px;
+  height: 18px;
+  opacity: 0.55;
+  color: var(--text-3);
+  background: transparent;
+  border-color: transparent;
+  border-radius: 5px;
+}
+
+body.compact #btn-compact:hover {
+  opacity: 1;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--border);
+}
+
+body.compact .titlebar {
+  flex-direction: column;
+  height: 100vh !important;
+  padding: 0;
+  gap: 0;
+  justify-content: center;
+}
+
+#compact-timer-val {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  transition: text-shadow 0.3s;
+}
+
+body.compact .timer-block.running~.compact-info #compact-timer-val,
+body.compact #compact-timer-val.pulse {
+  animation: timer-pulse 2s ease-in-out infinite;
+}
+
+@keyframes timer-pulse {
+
+  0%,
+  100% {
+    text-shadow: 0 0 0 transparent;
+  }
+
+  50% {
+    text-shadow: 0 0 14px var(--accent), 0 0 28px rgba(139, 92, 246, 0.3);
+  }
+}
+
+#compact-task-name {
+  color: var(--text-2);
+  font-size: 8px;
+  line-height: 1.15;
+  overflow: hidden;
+  max-width: 132px;
+  max-height: calc(2 * 1.15em);
+  text-align: center;
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+  transition: color 0.15s;
+  padding: 0 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+}
+
+#compact-task-name:hover {
+  color: var(--accent-lt);
+}
+
+.compact-buttons {
+  display: flex;
+  gap: 0;
+  margin-top: 2px;
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+
+.compact-ctrl-btn {
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  color: var(--text-2);
+  font-size: 11px;
+  width: 34px;
+  height: 24px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-app-region: no-drag;
+}
+
+.compact-ctrl-btn:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-color: var(--accent-bord);
+}
+
+.compact-ctrl-btn.compact-stop {
+  color: var(--red);
+  font-size: 13px;
+}
+
+.compact-ctrl-btn.compact-stop:hover {
+  background: var(--red-dim);
+  color: var(--red);
+  border-color: var(--red);
+}
+
+/* Shake animation for required-comment feedback */
+.shake {
+  animation: shake 0.4s ease;
+  outline: 2px solid var(--red) !important;
+}
+
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(-4px);
+  }
+
+  40% {
+    transform: translateX(4px);
+  }
+
+  60% {
+    transform: translateX(-3px);
+  }
+
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+#btn-compact {
+  font-size: 0 !important;
+  width: 28px;
+  height: 28px;
+}
+
+/* в”Ђв”Ђ Narrow mode (tasks panel hidden): emoji tabs в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
+body.tasks-hidden .tab {
+  font-size: 0;
+}
+
+body.tasks-hidden .tab::after {
+  content: attr(data-emoji);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* Calendar: fit period buttons in narrow window */
+body.tasks-hidden .calendar-header>span {
+  display: none;
+}
+
+body.tasks-hidden .calendar-period-select button {
+  padding: 3px 4px;
+  font-size: 9px;
+}
+
+body.tasks-hidden #btn-refresh-calendar {
+  padding: 3px 7px;
+  font-size: 10px;
+}
+
+/* в”Ђв”Ђ Panel toggle buttons в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
+.panel-toggle-row {
+  display: flex;
+  gap: 4px;
+  padding-top: 4px;
+  flex-shrink: 0;
+}
+
+.btn-grow {
+  flex: 1;
+}
+
+.btn-row-spaced {
+  margin-top: 6px;
+}
+
+.btn-panel-toggle {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 10px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font);
+}
+
+.btn-panel-toggle:hover {
+  background: var(--surface3);
+  color: var(--text);
+}
+
+.btn-panel-toggle.active {
+  background: var(--accent-dim);
+  border-color: var(--accent-bord);
+  color: var(--accent);
+}
+
+/* в”Ђв”Ђ Side panels в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
+.side-panel {
+  width: 260px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.kanban-tasks-header-compact {
+  padding: 8px 10px 5px;
+}
+
+.side-panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Calendar mini items in left panel */
+.side-calendar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.side-calendar-item:hover {
+  border-color: var(--border-md);
+}
+
+.side-calendar-item.now {
+  background: var(--accent-dim);
+  border-color: var(--accent-bord);
+}
+
+.side-calendar-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+.side-calendar-time {
+  font-size: 9px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+}
+
+.side-calendar-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.side-calendar-item.now .side-calendar-name {
+  color: var(--accent);
+}
+
+.side-calendar-empty {
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* в”Ђв”Ђ History: Timeline в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
+.history-view-toggle {
+  display: flex;
+  gap: 3px;
+}
+
+.history-view-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font);
+}
+
+.history-view-btn.active {
+  background: var(--accent-dim);
+  border-color: var(--accent-bord);
+  color: var(--accent);
+}
+
+.timeline-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Fix horizontal scroll in timeline view */
+  padding: 4px 0;
+}
+
+.timeline-axis {
+  position: relative;
+  height: 16px;
+  margin-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.timeline-axis-label {
+  position: absolute;
+  font-size: 9px;
+  color: var(--text-3);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.timeline-axis-label:first-child {
+  transform: translateX(0);
+}
+
+.timeline-axis-label:last-child {
+  transform: translateX(-100%);
+}
+
+.timeline-axis-line {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--border);
+}
+
+.timeline-row {
+  position: relative;
+  height: 24px;
+  margin-bottom: 3px;
+  flex-shrink: 0;
+}
+
+.timeline-bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  font-size: 9px;
+  font-weight: 600;
+  color: #fff;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: default;
+  transition: filter 0.15s;
+  min-width: 4px;
+  box-sizing: border-box;
+}
+
+.timeline-bar:hover {
+  filter: brightness(1.2);
+}
+

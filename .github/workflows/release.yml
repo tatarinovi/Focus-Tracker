@@ -1,0 +1,122 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'windows-latest'
+            args: '--target x86_64-pc-windows-msvc'
+          - platform: 'macos-latest'
+            args: '--target universal-apple-darwin'
+          - platform: 'ubuntu-22.04'
+            args: '--target x86_64-unknown-linux-gnu'
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Verify release versions
+        run: npm run version:check
+
+      - name: Create app-secrets.js from GitHub Secrets
+        shell: bash
+        run: |
+          cat > app-secrets.js << 'EOF'
+          module.exports = {
+            KANBAN_API_BASE_URL:  '${{ secrets.KANBAN_API_BASE_URL }}',
+            DEFAULT_BOT_TOKEN:    '${{ secrets.DEFAULT_BOT_TOKEN }}',
+            JIRA_URL:             '${{ secrets.JIRA_URL }}',
+            JIRA_DEFAULT_PROJECT: '${{ secrets.JIRA_DEFAULT_PROJECT }}',
+          };
+          EOF
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Focus Tracker ${{ github.ref_name }}'
+          releaseBody: 'See changelog'
+          releaseDraft: false
+          prerelease: ${{ contains(github.ref, 'beta') }}
+          args: ${{ matrix.args }}
+
+      - name: Create updater manifest fragment
+        run: node scripts/create-updater-fragment.cjs
+
+      - name: Upload updater manifest fragment
+        uses: actions/upload-artifact@v4
+        with:
+          name: updater-fragment-${{ runner.os }}
+          path: updater-fragments/*.json
+
+  publish-updater-manifest:
+    needs: release
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download updater manifest fragments
+        uses: actions/download-artifact@v4
+        with:
+          pattern: updater-fragment-*
+          path: updater-fragments
+          merge-multiple: true
+
+      - name: Preserve existing updater manifests
+        run: |
+          mkdir -p public-updates/updates
+          curl -fsSL https://tatarinovi.github.io/Focus-Tracker/updates/stable.json -o public-updates/updates/stable.json || true
+          curl -fsSL https://tatarinovi.github.io/Focus-Tracker/updates/beta.json -o public-updates/updates/beta.json || true
+
+      - name: Assemble channel manifest
+        run: node scripts/assemble-updater-manifest.cjs
+
+      - name: Attach manifest to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: release-manifests/*.json
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public-updates
+
+      - name: Deploy updater manifests to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

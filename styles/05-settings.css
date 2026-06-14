@@ -1,0 +1,482 @@
+﻿/* в”Ђв”Ђ РќР°СЃС‚СЂРѕР№РєРё в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
+#tab-settings.active {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+}
+
+#tab-settings.active::-webkit-scrollbar {
+  width: 3px;
+}
+
+#tab-settings.active::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#tab-settings.active::-webkit-scrollbar-thumb {
+  background: var(--border-md);
+  border-radius: 2px;
+}
+
+/* РђРєРєРѕСЂРґРµРѕРЅС‹ */
+#tab-settings .accordion {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.018) 0%, rgba(255, 255, 255, 0.008) 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+#tab-settings .accordion-header {
+  width: 100%;
+  padding: 11px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font);
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+#tab-settings .accordion-header:hover {
+  background: var(--surface2);
+}
+
+#tab-settings .accordion.open .accordion-header {
+  background: rgba(255, 255, 255, 0.025);
+  border-radius: 11px 11px 0 0;
+}
+
+#tab-settings .accordion-arrow {
+  font-size: 8px;
+  color: var(--text-3);
+  transition: transform 0.2s;
+}
+
+#tab-settings .accordion.open .accordion-arrow {
+  transform: rotate(180deg);
+}
+
+#tab-settings .accordion-content {
+  display: none;
+  padding: 4px 14px 14px;
+  flex-direction: column;
+  gap: 8px;
+  overflow: visible;
+  box-sizing: border-box;
+}
+
+#tab-settings .accordion-content::-webkit-scrollbar {
+  width: 3px;
+}
+
+#tab-settings .accordion-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#tab-settings .accordion-content::-webkit-scrollbar-thumb {
+  background: var(--border-md);
+  border-radius: 2px;
+}
+
+#tab-settings .accordion.open .accordion-content {
+  display: flex;
+}
+
+.kanban-done-accordion {
+  background: transparent;
+  border: none;
+  border-top: none;
+  border-radius: 0;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex-shrink: 0;
+  min-height: 24px;
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.kanban-done-accordion-header {
+  width: 100%;
+  min-height: 28px;
+  padding: 4px 4px 4px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: left;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.kanban-done-accordion-header:hover {
+  color: var(--text);
+}
+
+.kanban-done-accordion.open .kanban-done-accordion-header {
+  padding-bottom: 8px;
+}
+
+.kanban-done-accordion-title {
+  color: var(--text-2);
+}
+
+.kanban-done-accordion-header:hover .kanban-done-accordion-title {
+  color: var(--text);
+}
+
+.kanban-done-accordion-arrow {
+  font-size: 8px;
+  color: var(--text-3);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.kanban-done-accordion.open .kanban-done-accordion-arrow {
+  transform: rotate(180deg);
+}
+
+.kanban-done-accordion-content {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  flex-shrink: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-in-out;
+}
+
+.done-tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.done-task .kanban-task-pin,
+.done-task .kanban-task-play {
+  display: none;
+}
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 6px 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+#tab-settings .accordion-content > .settings-group + .settings-group {
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  padding-top: 10px;
+}
+
+.settings-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-2);
+  cursor: pointer;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.settings-checkbox input {
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.settings-checkbox:hover {
+  color: var(--text);
+}
+
+.settings-group-flex {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-inline-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-range-grow {
+  flex: 1;
+}
+
+.settings-inline-value {
+  min-width: 36px;
+  text-align: right;
+}
+
+.settings-group label {
+  font-size: 9px;
+  color: rgba(198, 206, 230, 0.78);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.settings-input {
+  width: 100%;
+  padding: 8px 11px;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12px;
+  font-family: var(--font);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.settings-input::placeholder {
+  color: var(--text-3);
+}
+
+.settings-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
+.custom-select-wrapper.settings-input {
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.custom-select-wrapper.settings-input .custom-select-trigger {
+  background: rgba(255, 255, 255, 0.015);
+  border-radius: 8px;
+}
+
+select.settings-input {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238E96B8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat, no-repeat;
+  background-position: 0 0, right 10px center;
+  background-size: auto, 10px 6px;
+  cursor: pointer;
+}
+
+select.settings-input:hover {
+  border-color: var(--border-md);
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+select.settings-input::-ms-expand {
+  display: none;
+}
+
+select.settings-input option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.help-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border-md);
+  border-radius: 50%;
+  font-size: 11px;
+  color: var(--text-2);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.help-btn:hover {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+
+.color-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.color-picker {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border-md);
+  border-radius: 8px;
+  cursor: pointer;
+  background: transparent;
+}
+
+.color-picker::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 5px;
+}
+
+.color-picker-label {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.appearance-row {
+  display: flex;
+  gap: 8px;
+}
+
+.appearance-row .btn.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.kanban-auth-row {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.kanban-auth-logged {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.kanban-user-badge {
+  font-size: 11px;
+  color: var(--text-2);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 7px 10px;
+  border-radius: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.chats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-right: 2px;
+}
+
+.chats-list::-webkit-scrollbar {
+  width: 3px;
+}
+
+.chats-list::-webkit-scrollbar-thumb {
+  background: var(--border-md);
+  border-radius: 2px;
+}
+
+#btn-add-chat {
+  padding: 7px 12px;
+  font-size: 11px;
+  border-style: dashed;
+  border-color: var(--border-md);
+  height: 34px;
+  flex-shrink: 0;
+}
+
+.chat-item {
+  display: flex;
+  gap: 6px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.018);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  align-items: center;
+  min-width: 0;
+  transition: border-color 0.15s;
+}
+
+.chat-item:focus-within {
+  border-color: var(--accent);
+}
+
+.chat-item input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 11px;
+  outline: none;
+  min-width: 0;
+  font-family: var(--font-mono);
+}
+
+.chat-item input::placeholder {
+  color: var(--text-3);
+}
+
+.chat-item-sep {
+  width: 1px;
+  height: 14px;
+  background: var(--border-md);
+  flex-shrink: 0;
+}
+
+.chat-item button {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 2px;
+  line-height: 1;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+
+.chat-item button:hover {
+  color: var(--red);
+}
+
