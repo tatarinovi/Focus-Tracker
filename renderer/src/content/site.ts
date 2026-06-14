@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.0.1";
+export const CURRENT_VERSION = "1.0.2";
 
 export const GITHUB_URL = "https://github.com/tatarinovi/Focus-Tracker";
 export const RELEASES_URL = "https://github.com/tatarinovi/Focus-Tracker/releases";
@@ -69,6 +69,15 @@ export const TECH_STACK = [
 ];
 
 export const CHANGELOG = [
+  {
+    version: "1.0.2",
+    date: "2026-06-14",
+    changes: [
+      "Исправлена совместимость ключей платформ в манифесте автообновлений",
+      "Добавлено логирование для диагностики автообновлений",
+      "Изменён брендинг приложения",
+    ],
+  },
   {
     version: "1.0.1",
     date: "2026-06-14",
