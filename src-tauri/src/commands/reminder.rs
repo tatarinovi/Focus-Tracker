@@ -45,7 +45,6 @@ pub async fn show_meeting_reminder(
     .resizable(false)
     .always_on_top(true)
     .decorations(false)
-    .transparent(true)
     .skip_taskbar(true)
     .build()
     .map_err(|e| e.to_string())?;
