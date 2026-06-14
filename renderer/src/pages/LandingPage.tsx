@@ -53,7 +53,7 @@ function Hero() {
       <div className="relative mx-auto max-w-5xl px-6 text-center">
         <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#5b7cfa]/20 bg-[#5b7cfa]/5 px-4 py-1.5 text-sm text-[#5b7cfa]">
           <span className="h-1.5 w-1.5 rounded-full bg-[#5b7cfa] animate-pulse" />
-          v2.0.3 — Stable
+          v1.0.0 — Stable
         </div>
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white mb-6">
           Focus{" "}
@@ -86,7 +86,7 @@ function Hero() {
         </div>
         <div className="relative mx-auto max-w-4xl rounded-2xl border border-gray-800 overflow-hidden shadow-2xl shadow-black/50">
           <img
-            src="/opengraph.jpg"
+            src="./opengraph.jpg"
             alt="Focus Tracker — интерфейс приложения"
             className="w-full h-auto"
             loading="eager"

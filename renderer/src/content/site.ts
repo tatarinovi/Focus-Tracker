@@ -1,3 +1,5 @@
+export const CURRENT_VERSION = "1.0.0";
+
 export const GITHUB_URL = "https://github.com/tatarinovi/Focus-Tracker";
 export const RELEASES_URL = "https://github.com/tatarinovi/Focus-Tracker/releases";
 export const ISSUES_URL = "https://github.com/tatarinovi/Focus-Tracker/issues";
@@ -118,14 +120,13 @@ export function detectPlatform(): Platform {
 
 export function getDownloadUrl(platform: Platform): string {
   if (platform === "unknown") return RELEASES_URL;
-  const latest = CHANGELOG[0]?.version;
-  const tag = latest ? `v${latest}` : "";
+  const tag = `v${CURRENT_VERSION}`;
   if (platform === "windows")
-    return `${RELEASES_URL}/download/${tag}/Focus-Tracker_${latest}_x64-setup.exe`;
+    return `${RELEASES_URL}/download/${tag}/Focus-Tracker_${CURRENT_VERSION}_x64-setup.exe`;
   if (platform === "macos")
-    return `${RELEASES_URL}/download/${tag}/Focus-Tracker_${latest}_universal.dmg`;
+    return `${RELEASES_URL}/download/${tag}/Focus-Tracker_${CURRENT_VERSION}_universal.dmg`;
   if (platform === "linux")
-    return `${RELEASES_URL}/download/${tag}/Focus-Tracker_${latest}_amd64.AppImage`;
+    return `${RELEASES_URL}/download/${tag}/Focus-Tracker_${CURRENT_VERSION}_amd64.AppImage`;
   return RELEASES_URL;
 }
 
