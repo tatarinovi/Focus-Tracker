@@ -48,6 +48,7 @@ jobs:
           cp renderer-dist/opengraph.png deploy/ 2>/dev/null || true
           cp renderer-dist/favicon.svg deploy/ 2>/dev/null || true
           cp renderer-dist/apple-touch-icon.svg deploy/ 2>/dev/null || true
+          cp -r renderer-dist/screenshots deploy/screenshots 2>/dev/null || true
           curl -fsSL https://tatarinovi.github.io/Focus-Tracker/updates/stable.json -o deploy/updates/stable.json 2>/dev/null || true
           curl -fsSL https://tatarinovi.github.io/Focus-Tracker/updates/beta.json -o deploy/updates/beta.json 2>/dev/null || true
 
