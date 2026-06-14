@@ -27,7 +27,7 @@ import {
   PLATFORM_LABELS,
   type Platform,
 } from "@/content/site";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Timer,
@@ -140,18 +140,38 @@ function Features() {
 
 function Gallery() {
   const [current, setCurrent] = useState(0);
-  const [previous, setPrevious] = useState<number | null>(null);
+  const [animating, setAnimating] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const goTo = (next: number) => {
+  const goTo = useCallback((next: number) => {
     if (next === current) return;
-    setPrevious(current);
+    setAnimating(true);
     setCurrent(next);
-  };
+  }, [current]);
 
   const prev = () => goTo(current === 0 ? SCREENSHOTS.length - 1 : current - 1);
   const next = () => goTo(current === SCREENSHOTS.length - 1 ? 0 : current + 1);
 
-  const handleTransitionEnd = () => setPrevious(null);
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      setCurrent((i) => (i === SCREENSHOTS.length - 1 ? 0 : i + 1));
+      setAnimating(true);
+    }, 5000);
+    return () => clearInterval(timerRef.current);
+  }, []);
+
+  const resetAutoplay = () => {
+    clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setCurrent((i) => (i === SCREENSHOTS.length - 1 ? 0 : i + 1));
+      setAnimating(true);
+    }, 5000);
+  };
+
+  const handleDotClick = (i: number) => {
+    goTo(i);
+    resetAutoplay();
+  };
 
   return (
     <section className="py-20 lg:py-28 border-t border-gray-800/50">
@@ -164,44 +184,40 @@ function Gallery() {
             Как выглядит Focus Tracker
           </p>
         </div>
-        <div className="relative group">
-          <div className="overflow-hidden rounded-2xl border border-gray-800 bg-[#15171e]">
-            {previous !== null && (
-              <img
-                src={SCREENSHOTS[previous].src}
-                alt={SCREENSHOTS[previous].alt}
-                className="w-full h-auto absolute inset-0 animate-fade-out"
-              />
-            )}
+        <div
+          className="relative group"
+          onMouseEnter={() => clearInterval(timerRef.current)}
+          onMouseLeave={resetAutoplay}
+        >
+          <div className="overflow-hidden rounded-2xl border border-gray-800 bg-[#15171e] relative">
             <img
+              key={current}
               src={SCREENSHOTS[current].src}
               alt={SCREENSHOTS[current].alt}
-              className={`w-full h-auto ${
-                previous !== null ? "animate-fade-in" : ""
-              }`}
-              onTransitionEnd={handleTransitionEnd}
+              className={`w-full h-auto ${animating ? "animate-fade-in" : ""}`}
+              onAnimationEnd={() => setAnimating(false)}
             />
           </div>
           <button
-            onClick={prev}
+            onClick={() => { prev(); resetAutoplay(); }}
             className="absolute left-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/60 border border-gray-700 text-gray-300 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80 hover:text-white"
           >
             ‹
           </button>
           <button
-            onClick={next}
+            onClick={() => { next(); resetAutoplay(); }}
             className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/60 border border-gray-700 text-gray-300 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80 hover:text-white"
           >
             ›
           </button>
-          <p className="text-center text-sm text-gray-500 mt-4 transition-opacity duration-300">
+          <p className="text-center text-sm text-gray-500 mt-4">
             {SCREENSHOTS[current].caption}
           </p>
           <div className="flex items-center justify-center gap-2 mt-4">
             {SCREENSHOTS.map((_, i) => (
               <button
                 key={i}
-                onClick={() => goTo(i)}
+                onClick={() => handleDotClick(i)}
                 className={`h-2 rounded-full transition-all ${
                   i === current
                     ? "w-6 bg-[#5b7cfa]"
