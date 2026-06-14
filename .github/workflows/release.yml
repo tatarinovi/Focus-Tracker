@@ -141,8 +141,8 @@ jobs:
           cp renderer-dist/opengraph.jpg deploy/ 2>/dev/null || true
           cp renderer-dist/favicon.svg deploy/ 2>/dev/null || true
           cp renderer-dist/apple-touch-icon.svg deploy/ 2>/dev/null || true
-          cp public-updates/updates/*.json deploy/updates/ 2>/dev/null || true
           cp updater-cache/*.json deploy/updates/ 2>/dev/null || true
+          cp public-updates/updates/*.json deploy/updates/
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3
