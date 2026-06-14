@@ -1,9 +1,9 @@
-export const CURRENT_VERSION = "1.0.0";
+export const CURRENT_VERSION = "1.0.1";
 
 export const GITHUB_URL = "https://github.com/tatarinovi/Focus-Tracker";
 export const RELEASES_URL = "https://github.com/tatarinovi/Focus-Tracker/releases";
 export const ISSUES_URL = "https://github.com/tatarinovi/Focus-Tracker/issues";
-export const LICENSE = "ISC";
+export const LICENSE = "MIT";
 
 export const DESCRIPTION =
   "Десктопное Tauri-приложение для персонального тайм-трекинга с интеграциями в Kanban, Яндекс Календарь, Jira и Telegram.";
@@ -70,7 +70,7 @@ export const TECH_STACK = [
 
 export const CHANGELOG = [
   {
-    version: "2.0.3",
+    version: "1.0.1",
     date: "2026-06-14",
     changes: [
       "Добавлен безопасный Tauri updater с каналами stable и beta",
@@ -79,32 +79,12 @@ export const CHANGELOG = [
     ],
   },
   {
-    version: "1.4.5",
-    date: "2026-05-01",
+    version: "1.0.0",
+    date: "2026-06-14",
     changes: [
-      "Исправлен баг с таймером при переключении вкладок",
-      "Улучшена производительность Kanban при большом количестве задач",
-      "Добавлена поддержка Яндекс Телемост в календаре",
+      "Первый релиз после простоя и переход на Tauri 2.0 с Electron"
     ],
-  },
-  {
-    version: "1.4.0",
-    date: "2026-04-15",
-    changes: [
-      "Новая функция: компактный режим",
-      "Экспорт истории в CSV",
-      "Улучшен редактор заметок с поддержкой таблиц",
-      "Горячие клавиши для создания задач в Jira",
-    ],
-  },
-  {
-    version: "1.3.2",
-    date: "2026-04-01",
-    changes: [
-      "Исправлена синхронизация с CalDAV",
-      "Улучшены уведомления Pomodoro",
-    ],
-  },
+  }
 ];
 
 export type Platform = "windows" | "macos" | "linux" | "unknown";

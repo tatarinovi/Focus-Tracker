@@ -19,6 +19,7 @@ import {
   RELEASES_URL,
   DESCRIPTION,
   LICENSE,
+  CURRENT_VERSION,
   detectPlatform,
   getDownloadUrl,
   PLATFORM_LABELS,
@@ -53,7 +54,7 @@ function Hero() {
       <div className="relative mx-auto max-w-5xl px-6 text-center">
         <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#5b7cfa]/20 bg-[#5b7cfa]/5 px-4 py-1.5 text-sm text-[#5b7cfa]">
           <span className="h-1.5 w-1.5 rounded-full bg-[#5b7cfa] animate-pulse" />
-          v1.0.0 — Stable
+          v{CURRENT_VERSION} — Stable
         </div>
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white mb-6">
           Focus{" "}
