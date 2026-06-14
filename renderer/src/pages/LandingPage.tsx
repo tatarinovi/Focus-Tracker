@@ -140,9 +140,18 @@ function Features() {
 
 function Gallery() {
   const [current, setCurrent] = useState(0);
+  const [previous, setPrevious] = useState<number | null>(null);
 
-  const prev = () => setCurrent((i) => (i === 0 ? SCREENSHOTS.length - 1 : i - 1));
-  const next = () => setCurrent((i) => (i === SCREENSHOTS.length - 1 ? 0 : i + 1));
+  const goTo = (next: number) => {
+    if (next === current) return;
+    setPrevious(current);
+    setCurrent(next);
+  };
+
+  const prev = () => goTo(current === 0 ? SCREENSHOTS.length - 1 : current - 1);
+  const next = () => goTo(current === SCREENSHOTS.length - 1 ? 0 : current + 1);
+
+  const handleTransitionEnd = () => setPrevious(null);
 
   return (
     <section className="py-20 lg:py-28 border-t border-gray-800/50">
@@ -157,10 +166,20 @@ function Gallery() {
         </div>
         <div className="relative group">
           <div className="overflow-hidden rounded-2xl border border-gray-800 bg-[#15171e]">
+            {previous !== null && (
+              <img
+                src={SCREENSHOTS[previous].src}
+                alt={SCREENSHOTS[previous].alt}
+                className="w-full h-auto absolute inset-0 animate-fade-out"
+              />
+            )}
             <img
               src={SCREENSHOTS[current].src}
               alt={SCREENSHOTS[current].alt}
-              className="w-full h-auto transition-opacity duration-300"
+              className={`w-full h-auto ${
+                previous !== null ? "animate-fade-in" : ""
+              }`}
+              onTransitionEnd={handleTransitionEnd}
             />
           </div>
           <button
@@ -175,14 +194,14 @@ function Gallery() {
           >
             ›
           </button>
-          <p className="text-center text-sm text-gray-500 mt-4">
+          <p className="text-center text-sm text-gray-500 mt-4 transition-opacity duration-300">
             {SCREENSHOTS[current].caption}
           </p>
           <div className="flex items-center justify-center gap-2 mt-4">
             {SCREENSHOTS.map((_, i) => (
               <button
                 key={i}
-                onClick={() => setCurrent(i)}
+                onClick={() => goTo(i)}
                 className={`h-2 rounded-full transition-all ${
                   i === current
                     ? "w-6 bg-[#5b7cfa]"
