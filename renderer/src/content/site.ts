@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.1.0";
+export const CURRENT_VERSION = "1.1.1";
 
 export const GITHUB_URL = "https://github.com/tatarinovi/Focus-Tracker";
 export const RELEASES_URL = "https://github.com/tatarinovi/Focus-Tracker/releases";
@@ -70,7 +70,7 @@ export const TECH_STACK = [
 
 export const CHANGELOG = [
   {
-    version: "1.1.0",
+    version: "1.1.1",
     date: "2026-06-14",
     changes: [
       "Переименован раздел «Фокус» в «Главная»",
