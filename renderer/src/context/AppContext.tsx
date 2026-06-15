@@ -1,6 +1,7 @@
 import { createContext, useContext, useReducer, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { Task, HistoryEntry, Note, AppNotification, CalendarEvent, roundToQuarter } from '@/data/mockData';
-import { loadRealCalendarEvents, loadRealHistory, loadRealKanbanTaskDetail, loadRealKanbanTasks, loadRealNotes, mergeKanbanTaskList } from '@/lib/tauriDataApi';
+import { hydrateKanbanTasksMissingDetails, loadRealCalendarEvents, loadRealHistory, loadRealKanbanTaskDetail, loadRealKanbanTasks, loadRealNotes, mergeKanbanTaskList, resolveKanbanStageName, savePinnedTaskIds } from '@/lib/tauriDataApi';
+import { KANBAN_STAGE_IDS, isKanbanPreWorkStage } from '@/data/mockData';
 import { toast } from 'sonner';
 import { AppSoundKey, playAppSound, setAppAudioVolume, soundToast, stopAllSounds } from '@/lib/appAudio';
 
@@ -296,7 +297,11 @@ function reducer(state: AppState, action: Action): AppState {
         newNotifs = [notif, ...state.notifications];
       }
       if (action.action === 'complete' && state.timer.activeTask) {
-        newTasks = newTasks.map(t => t.id === state.timer.activeTask!.id ? { ...t, status: 'Done' as const } : t);
+        newTasks = newTasks.map(t => t.id === state.timer.activeTask!.id ? {
+          ...t,
+          status: resolveKanbanStageName(KANBAN_STAGE_IDS.RESOLVED, "Решена"),
+          stageId: KANBAN_STAGE_IDS.RESOLVED,
+        } : t);
         const doneNotif: AppNotification = { id: Date.now() + 1, type: 'task_done', text: `Задача завершена: ${state.timer.activeTask.title}`, timestamp: new Date().toTimeString().slice(0,5), isRead: false };
         newNotifs = [doneNotif, ...newNotifs];
       }
@@ -340,8 +345,17 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, notifications: state.notifications.map(n => ({ ...n, isRead: true })) };
     case 'ADD_NOTIF':
       return { ...state, notifications: [{ ...action.notif, id: Date.now() }, ...state.notifications] };
-    case 'UPDATE_TASK':
-      return { ...state, tasks: state.tasks.map(t => t.id === action.task.id ? action.task : t) };
+    case 'UPDATE_TASK': {
+      const tasks = state.tasks.map(t => t.id === action.task.id ? action.task : t);
+      const activeId = state.timer.activeTask?.id;
+      return {
+        ...state,
+        tasks,
+        timer: activeId === action.task.id && state.timer.activeTask
+          ? { ...state.timer, activeTask: { ...state.timer.activeTask, ...action.task } }
+          : state.timer,
+      };
+    }
     case 'PIN_TASK':
       return { ...state, tasks: state.tasks.map(t => t.id === action.taskId ? { ...t, isPinned: !t.isPinned } : t) };
     case 'DELETE_HISTORY':
@@ -404,8 +418,17 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, selectedDate: action.date };
     case 'SET_CONFIG':
       return { ...state, config: action.config };
-    case 'SET_TASKS':
-      return { ...state, tasks: action.tasks };
+    case 'SET_TASKS': {
+      const activeId = state.timer.activeTask?.id;
+      const refreshedActiveTask = activeId ? action.tasks.find(task => task.id === activeId) : null;
+      return {
+        ...state,
+        tasks: action.tasks,
+        timer: refreshedActiveTask && state.timer.activeTask
+          ? { ...state.timer, activeTask: { ...state.timer.activeTask, ...refreshedActiveTask } }
+          : state.timer,
+      };
+    }
     case 'SET_HISTORY':
       return { ...state, history: action.history };
     case 'SET_NOTES':
@@ -443,6 +466,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const stateRef = useRef(state);
   const kanbanRequestRef = useRef<Promise<void> | null>(null);
+  const hydratingNewTaskIdsRef = useRef<Set<number>>(new Set());
   const kanbanTaskRequestRef = useRef<Map<number, Promise<Task | null>>>(new Map());
   const calendarRequestRef = useRef<Promise<void> | null>(null);
   const notesRequestRef = useRef<Promise<void> | null>(null);
@@ -527,6 +551,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     saveState(state);
   }, [state]);
+
+  useEffect(() => {
+    const pinnedIds = state.tasks.filter(task => task.isPinned).map(task => task.id);
+    if (pinnedIds.length === 0 && state.tasks.length === 0) return;
+    savePinnedTaskIds(new Set(pinnedIds));
+  }, [state.tasks]);
 
   useEffect(() => {
     if (!window.api || state.config === null) return;
@@ -693,6 +723,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
             });
           }
           playSound('notification');
+
+          const newTasksToHydrate = newTasks.filter(
+            (task) => !task.detailsLoaded && !hydratingNewTaskIdsRef.current.has(task.id),
+          );
+          if (newTasksToHydrate.length > 0) {
+            newTasksToHydrate.forEach((task) => hydratingNewTaskIdsRef.current.add(task.id));
+            void hydrateKanbanTasksMissingDetails(config, newTasksToHydrate)
+              .then((hydrated) => {
+                if (hydrated.length === 0) return;
+                dispatch({
+                  type: 'SET_TASKS',
+                  tasks: mergeKanbanTaskList(stateRef.current.tasks, hydrated),
+                });
+              })
+              .catch(() => {})
+              .finally(() => {
+                newTasksToHydrate.forEach((task) => hydratingNewTaskIdsRef.current.delete(task.id));
+              });
+          }
         }
         dispatch({ type: 'SET_TASKS', tasks: mergedTasks });
       } catch {}
@@ -708,8 +757,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } else {
       dispatch({ type: 'START_TIMER', task });
       const token = state.config?.kanban?.token;
-      if (window.api?.kanbanUpdateTaskStage && token && ['new', 'to do', 'backlog'].includes(String(task.status).toLowerCase())) {
-        window.api.kanbanUpdateTaskStage(task.id, 2, token).catch(() => {});
+      if (window.api?.kanbanUpdateTaskStage && token && isKanbanPreWorkStage(task)) {
+        window.api.kanbanUpdateTaskStage(task.id, KANBAN_STAGE_IDS.IN_PROGRESS, token).catch(() => {});
       }
       toast.success(`Таймер запущен: ${task.title}`);
     }
@@ -741,10 +790,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (token && task.id) {
       const roundedMinutes = Math.ceil((elapsedMs / 60000) / 15) * 15;
       if (window.api.kanbanLogWork) {
-        await window.api.kanbanLogWork(task.id, startTime.toISOString(), `${comment.trim()} | Task Tracker`, roundedMinutes, token).catch(() => {});
+        await window.api.kanbanLogWork(task.id, startTime.toISOString(), `${comment.trim()} | Focus Tracker`, roundedMinutes, token).catch(() => {});
       }
       if (complete && window.api.kanbanUpdateTaskStage) {
-        await window.api.kanbanUpdateTaskStage(task.id, 3, token).catch(() => {});
+        await window.api.kanbanUpdateTaskStage(task.id, KANBAN_STAGE_IDS.RESOLVED, token).catch(() => {});
       }
     }
     await reloadHistory();
@@ -767,8 +816,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       persistTaskWork(activeTask, elapsed, comment || '', action === 'complete').catch(() => {});
       const nextTask = state.pendingSwitchTask;
       const token = state.config?.kanban?.token;
-      if (nextTask && token && window.api?.kanbanUpdateTaskStage && ['new', 'to do', 'backlog'].includes(String(nextTask.status).toLowerCase())) {
-        window.api.kanbanUpdateTaskStage(nextTask.id, 2, token).catch(() => {});
+      if (nextTask && token && window.api?.kanbanUpdateTaskStage && isKanbanPreWorkStage(nextTask)) {
+        window.api.kanbanUpdateTaskStage(nextTask.id, KANBAN_STAGE_IDS.IN_PROGRESS, token).catch(() => {});
       }
     }
     dispatch({ type: 'CONFIRM_SWITCH', action, comment });
@@ -789,7 +838,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!window.api) return;
     if (kanbanRequestRef.current) return kanbanRequestRef.current;
     const current = stateRef.current;
-    if (!force && current.tasks.length > 0 && current.tasks.some(task => task.detailsLoaded)) return;
+    if (!force && current.tasks.length > 0 && current.tasks.every(task => task.detailsLoaded)) return;
 
     kanbanRequestRef.current = (async () => {
       dispatch({ type: 'SET_LOADING', key: 'kanban', value: true });
@@ -797,9 +846,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const latest = stateRef.current;
         const config = latest.config || await window.api!.loadConfig();
         dispatch({ type: 'SET_CONFIG', config });
-        const shouldHydrateDetails = latest.tasks.length === 0 || !latest.tasks.some(task => task.detailsLoaded);
-        const tasks = await loadRealKanbanTasks(config, { hydrateDetails: shouldHydrateDetails });
-        const mergedTasks = shouldHydrateDetails ? tasks : mergeKanbanTaskList(latest.tasks, tasks);
+        let mergedTasks: Task[];
+        if (latest.tasks.length === 0) {
+          mergedTasks = await loadRealKanbanTasks(config, { hydrateDetails: true });
+        } else {
+          const tasks = await loadRealKanbanTasks(config, { hydrateDetails: false });
+          mergedTasks = mergeKanbanTaskList(latest.tasks, tasks);
+          if (mergedTasks.some(task => !task.detailsLoaded)) {
+            const hydrated = await hydrateKanbanTasksMissingDetails(config, mergedTasks);
+            if (hydrated.length > 0) {
+              mergedTasks = mergeKanbanTaskList(mergedTasks, hydrated);
+            }
+          }
+        }
         const refreshedConfig = await window.api!.loadConfig().catch(() => config);
         dispatch({ type: 'SET_CONFIG', config: refreshedConfig });
         dispatch({ type: 'SET_TASKS', tasks: mergedTasks });

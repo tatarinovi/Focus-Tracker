@@ -1,5 +1,46 @@
-export type TaskPriority = 'Critical' | 'High' | 'Medium' | 'Low';
-export type TaskStatus = 'Backlog' | 'To Do' | 'In Progress' | 'Review' | 'Done';
+export type TaskPriority = string;
+
+export const KANBAN_PRIORITY_ORDER = [
+  "Критический",
+  "Высокий",
+  "Средний",
+  "Низкий",
+] as const;
+
+export const KANBAN_DEFAULT_PRIORITY_NAMES: Record<number, string> = {
+  1: "Низкий",
+  2: "Средний",
+  3: "Высокий",
+  4: "Критический",
+};
+export type TaskStatus = string;
+
+export const KANBAN_STAGE_ORDER = [
+  "Новые",
+  "Бэклог",
+  "В работе",
+  "Ревью",
+  "Тест",
+  "Релиз",
+  "Решена",
+  "Поддержка",
+  "Фикс",
+] as const;
+
+export const KANBAN_STAGE_IDS = {
+  IN_PROGRESS: 2,
+  RESOLVED: 3,
+} as const;
+
+export const KANBAN_DEFAULT_STAGE_NAMES: Record<number, string> = {
+  1: "Новые",
+  2: "В работе",
+  3: "Решена",
+  4: "Ревью",
+  5: "Тест",
+  6: "Релиз",
+  7: "Бэклог",
+};
 export type RsvpStatus = 'accepted' | 'tentative' | 'declined' | 'not_responded';
 
 export interface ChecklistItem { text: string; done: boolean }
@@ -12,7 +53,9 @@ export interface Task {
   detailsLoaded?: boolean;
   project: string;
   status: TaskStatus;
+  stageId?: number;
   priority: TaskPriority;
+  priorityId?: number;
   deadline: string;
   assignee: string;
   isPinned: boolean;
@@ -103,23 +146,70 @@ export const PROJECT_COLORS: Record<string, string> = {
 };
 
 export const PRIORITY_COLORS: Record<string, string> = {
-  'Critical': '#ef4444',
-  'High': '#f97316',
-  'Medium': '#eab308',
-  'Low': '#6b7280',
+  'Критический': '#ef4444',
+  'Высокий': '#f97316',
+  'Средний': '#eab308',
+  'Низкий': '#6b7280',
+  Critical: '#ef4444',
+  High: '#f97316',
+  Medium: '#eab308',
+  Low: '#6b7280',
 };
 
-export const PRIORITY_LABELS: Record<string, string> = {
-  'Critical': 'Критический',
-  'High': 'Высокий',
-  'Medium': 'Средний',
-  'Low': 'Низкий',
-};
+export function taskPriorityLabel(priority: string) {
+  return priority || "—";
+}
 
-export const STATUS_LABELS: Record<string, string> = {
-  'Backlog': 'Бэклог',
-  'To Do': 'К выполнению',
-  'In Progress': 'В работе',
-  'Review': 'Ревью',
-  'Done': 'Готово',
-};
+export function priorityColorForTask(priority: string) {
+  if (PRIORITY_COLORS[priority]) return PRIORITY_COLORS[priority];
+  const value = priority.trim().toLowerCase();
+  if (value.includes("крит")) return "#ef4444";
+  if (value.includes("выс")) return "#f97316";
+  if (value.includes("сред")) return "#eab308";
+  return "#6b7280";
+}
+
+export function sortKanbanPriorities(priorities: string[]) {
+  const order = new Map<string, number>(KANBAN_PRIORITY_ORDER.map((name, index) => [name, index]));
+  return [...new Set(priorities.filter(Boolean))].sort((a, b) => {
+    const left = order.get(a) ?? Number.MAX_SAFE_INTEGER;
+    const right = order.get(b) ?? Number.MAX_SAFE_INTEGER;
+    if (left !== right) return left - right;
+    return a.localeCompare(b, "ru");
+  });
+}
+
+/** @deprecated Используйте taskPriorityLabel — приоритет уже приходит из API Kanban. */
+export const PRIORITY_LABELS: Record<string, string> = Object.fromEntries(
+  KANBAN_PRIORITY_ORDER.map((name) => [name, name]),
+);
+
+export function taskStatusLabel(status: string) {
+  return status || "—";
+}
+
+export function sortKanbanStatuses(statuses: string[]) {
+  const order = new Map<string, number>(KANBAN_STAGE_ORDER.map((name, index) => [name, index]));
+  return [...new Set(statuses.filter(Boolean))].sort((a, b) => {
+    const left = order.get(a) ?? Number.MAX_SAFE_INTEGER;
+    const right = order.get(b) ?? Number.MAX_SAFE_INTEGER;
+    if (left !== right) return left - right;
+    return a.localeCompare(b, "ru");
+  });
+}
+
+export function isKanbanDoneStatus(status: string) {
+  const value = status.trim().toLowerCase();
+  return value.includes("реш") || value.includes("релиз") || value.includes("done") || value.includes("вып");
+}
+
+export function isKanbanPreWorkStage(task: Pick<Task, "status" | "stageId">) {
+  if (task.stageId === 1 || task.stageId === 7) return true;
+  const value = task.status.trim().toLowerCase();
+  return value.includes("нов") || value.includes("бэклог") || value.includes("backlog") || value.includes("to do");
+}
+
+/** @deprecated Используйте taskStatusLabel — статус уже приходит из API Kanban. */
+export const STATUS_LABELS: Record<string, string> = Object.fromEntries(
+  KANBAN_STAGE_ORDER.map((name) => [name, name]),
+);

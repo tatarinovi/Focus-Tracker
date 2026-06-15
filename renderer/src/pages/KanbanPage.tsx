@@ -1,13 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
-import { Task, PROJECT_COLORS, PRIORITY_COLORS, PRIORITY_LABELS, STATUS_LABELS, formatMinutes, TaskStatus } from "@/data/mockData";
+import { Task, PROJECT_COLORS, formatMinutes, sortKanbanStatuses, sortKanbanPriorities, taskStatusLabel, taskPriorityLabel, priorityColorForTask, KANBAN_STAGE_ORDER } from "@/data/mockData";
 import { Search, LayoutGrid, List, Pin, Star, X, Play, CheckCircle, RefreshCw } from "lucide-react";
 import { soundToast as toast } from "@/lib/appAudio";
 
-const STATUSES: TaskStatus[] = ['Backlog', 'To Do', 'In Progress', 'Review', 'Done'];
+const KANBAN_BOARD_STATUSES = [...KANBAN_STAGE_ORDER];
 
 function PriorityDot({ priority }: { priority: string }) {
-  return <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: PRIORITY_COLORS[priority] || '#6b7280' }} />;
+  return <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: priorityColorForTask(priority) }} />;
 }
 
 function ProjectBadge({ project }: { project: string }) {
@@ -50,6 +50,14 @@ function TaskDetailPanel({ task, onClose }: { task: Task; onClose: () => void })
   const { state, dispatch, startTimer } = useApp();
   const [editTask, setEditTask] = useState<Task>({ ...task });
   const description = plainTaskDescription(editTask.description);
+  const statusOptions = useMemo(
+    () => sortKanbanStatuses([...new Set([editTask.status, ...state.tasks.map(item => item.status)])]),
+    [editTask.status, state.tasks],
+  );
+  const panelPriorityOptions = useMemo(
+    () => sortKanbanPriorities([...new Set([editTask.priority, ...state.tasks.map(item => item.priority)])]),
+    [editTask.priority, state.tasks],
+  );
 
   useEffect(() => {
     setEditTask({ ...task });
@@ -90,7 +98,9 @@ function TaskDetailPanel({ task, onClose }: { task: Task; onClose: () => void })
               onChange={e => setEditTask({ ...editTask, status: e.target.value as Task['status'] })}
               className="w-full bg-input border border-border rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
             >
-              {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+              {statusOptions.map(s => (
+                <option key={s} value={s}>{taskStatusLabel(s)}</option>
+              ))}
             </select>
           </div>
           <div>
@@ -100,7 +110,9 @@ function TaskDetailPanel({ task, onClose }: { task: Task; onClose: () => void })
               onChange={e => setEditTask({ ...editTask, priority: e.target.value as Task['priority'] })}
               className="w-full bg-input border border-border rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
             >
-              {['Critical', 'High', 'Medium', 'Low'].map(p => <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>)}
+              {panelPriorityOptions.map(p => (
+                <option key={p} value={p}>{taskPriorityLabel(p)}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -259,6 +271,15 @@ export default function KanbanPage() {
     void ensureKanbanTaskDetail(task.id);
   };
 
+  const statusOptions = useMemo(
+    () => sortKanbanStatuses(tasks.map(task => task.status)),
+    [tasks],
+  );
+  const priorityOptions = useMemo(
+    () => sortKanbanPriorities(tasks.map(task => task.priority)),
+    [tasks],
+  );
+
   const filtered = useMemo(() => {
     return tasks.filter(t => {
       if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
@@ -270,6 +291,13 @@ export default function KanbanPage() {
       return true;
     });
   }, [tasks, search, filterProject, filterPriority, filterStatus, filterPinned, filterSuper]);
+
+  const boardStatuses = useMemo(() => {
+    const present = new Set(filtered.map(task => task.status).filter(Boolean));
+    const known = KANBAN_BOARD_STATUSES.filter(status => present.has(status));
+    const extra = sortKanbanStatuses([...present]).filter(status => !(KANBAN_BOARD_STATUSES as readonly string[]).includes(status));
+    return [...known, ...extra];
+  }, [filtered]);
 
   return (
     <div className="flex h-full">
@@ -294,12 +322,12 @@ export default function KanbanPage() {
 
           <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} className="bg-input border border-border rounded-md px-2 py-1.5 text-xs focus:outline-none">
             <option value="">Все приоритеты</option>
-            {['Critical','High','Medium','Low'].map(p => <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>)}
+            {priorityOptions.map(p => <option key={p} value={p}>{taskPriorityLabel(p)}</option>)}
           </select>
 
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-input border border-border rounded-md px-2 py-1.5 text-xs focus:outline-none">
             <option value="">Все статусы</option>
-            {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+            {statusOptions.map(s => <option key={s} value={s}>{taskStatusLabel(s)}</option>)}
           </select>
 
           <button
@@ -381,11 +409,11 @@ export default function KanbanPage() {
                     </td>
                     <td className="px-3 py-2.5 max-w-32"><ProjectBadge project={task.project} /></td>
                     <td className="px-3 py-2.5">
-                      <span className="text-xs text-muted-foreground">{STATUS_LABELS[task.status]}</span>
+                      <span className="text-xs text-muted-foreground">{taskStatusLabel(task.status)}</span>
                     </td>
                     <td className="px-3 py-2.5">
-                      <span className="text-xs font-medium" style={{ color: PRIORITY_COLORS[task.priority] }}>
-                        {PRIORITY_LABELS[task.priority]}
+                      <span className="text-xs font-medium" style={{ color: priorityColorForTask(task.priority) }}>
+                        {taskPriorityLabel(task.priority)}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{task.deadline || '—'}</td>
@@ -414,12 +442,12 @@ export default function KanbanPage() {
             </table>
           ) : (
             <div className="flex gap-4 p-4 min-w-max h-full">
-              {STATUSES.map(status => {
+              {boardStatuses.map(status => {
                 const colTasks = filtered.filter(t => t.status === status);
                 return (
                   <div key={status} className="w-56 flex-shrink-0 flex flex-col gap-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{STATUS_LABELS[status]}</span>
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{taskStatusLabel(status)}</span>
                       <span className="text-xs text-muted-foreground bg-secondary rounded-full w-5 h-5 flex items-center justify-center">{colTasks.length}</span>
                     </div>
                     <div className="flex-1 space-y-2 overflow-y-auto scrollbar-thin">

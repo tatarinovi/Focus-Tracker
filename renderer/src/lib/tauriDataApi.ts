@@ -5,6 +5,8 @@ import {
   Task,
   TaskPriority,
   TaskStatus,
+  KANBAN_DEFAULT_STAGE_NAMES,
+  KANBAN_DEFAULT_PRIORITY_NAMES,
   detectMeetingProvider,
   roundToQuarter,
 } from "@/data/mockData";
@@ -13,6 +15,122 @@ import { expandRawCalendarEvents } from "@/lib/calendarRecurrence";
 export const api = () => window.api;
 
 let kanbanBaseUrlCache: string | null = null;
+
+const PINNED_TASKS_KEY = "ft_pinned_tasks";
+
+type KanbanTaskDetailCache = Pick<
+  Task,
+  | "deadline"
+  | "isSupertask"
+  | "description"
+  | "checklist"
+  | "comments"
+  | "estimate"
+  | "spentTime"
+  | "detailsLoaded"
+  | "status"
+  | "stageId"
+  | "priority"
+  | "priorityId"
+  | "assignee"
+>;
+
+const kanbanTaskDetailCache = new Map<number, KanbanTaskDetailCache>();
+
+export function loadPinnedTaskIds(): Set<number> {
+  try {
+    const saved = localStorage.getItem(PINNED_TASKS_KEY);
+    if (!saved) return new Set();
+    const ids = JSON.parse(saved);
+    if (!Array.isArray(ids)) return new Set();
+    return new Set(ids.map((id) => Number(id)).filter((id) => Number.isFinite(id)));
+  } catch {
+    return new Set();
+  }
+}
+
+export function savePinnedTaskIds(ids: Set<number>) {
+  try {
+    localStorage.setItem(PINNED_TASKS_KEY, JSON.stringify([...ids]));
+  } catch { /* ignore */ }
+}
+
+function isSupertaskFromKanban(task: any) {
+  const raw = firstValue(task?.is_supertask, task?.isSupertask, task?.supertask);
+  if (raw === true || raw === 1 || raw === "1") return true;
+  if (typeof raw === "number") return raw > 0;
+  if (typeof raw === "string") {
+    const value = raw.trim().toLowerCase();
+    return value !== "" && value !== "0" && value !== "false";
+  }
+  return false;
+}
+
+function rememberKanbanTaskDetail(task: Task) {
+  const prev = kanbanTaskDetailCache.get(task.id);
+  const hasMetrics = Boolean(task.deadline || task.estimate > 0 || task.spentTime > 0 || task.isSupertask);
+  const hasContent = Boolean(task.description || task.checklist.length || task.comments.length);
+  if (!task.detailsLoaded && !hasMetrics && !hasContent && !prev) return;
+
+  kanbanTaskDetailCache.set(task.id, {
+    deadline: task.deadline || prev?.deadline || "",
+    isSupertask: task.isSupertask || prev?.isSupertask || false,
+    description: task.description || prev?.description || "",
+    checklist: task.checklist.length ? task.checklist : (prev?.checklist || []),
+    comments: task.comments.length ? task.comments : (prev?.comments || []),
+    estimate: task.estimate > 0 ? task.estimate : (prev?.estimate ?? 0),
+    spentTime: task.spentTime > 0 ? task.spentTime : (prev?.spentTime ?? 0),
+    status: task.status || prev?.status || "Новые",
+    stageId: task.stageId || prev?.stageId || 0,
+    priority: task.priority || prev?.priority || "Средний",
+    priorityId: task.priorityId || prev?.priorityId || 0,
+    assignee: task.assignee || prev?.assignee || "",
+    detailsLoaded: Boolean(task.detailsLoaded || prev?.detailsLoaded),
+  });
+}
+
+function mergeKanbanDetailFields(incoming: Task, existing?: Task): Partial<Task> {
+  const cached = kanbanTaskDetailCache.get(incoming.id);
+  const detailSource = existing?.detailsLoaded ? existing : cached;
+  if (!detailSource) return {};
+
+  return {
+    deadline: incoming.deadline || detailSource.deadline,
+    isSupertask: incoming.isSupertask || detailSource.isSupertask,
+    description: incoming.description || detailSource.description,
+    checklist: incoming.checklist.length ? incoming.checklist : detailSource.checklist,
+    comments: incoming.comments.length ? incoming.comments : detailSource.comments,
+    estimate: incoming.estimate > 0 ? incoming.estimate : detailSource.estimate,
+    spentTime: incoming.spentTime > 0 ? incoming.spentTime : detailSource.spentTime,
+    status: incoming.status || detailSource.status,
+    stageId: incoming.stageId || detailSource.stageId,
+    priority: incoming.priority || detailSource.priority,
+    priorityId: incoming.priorityId || detailSource.priorityId,
+    assignee: incoming.assignee || detailSource.assignee,
+    detailsLoaded: true as const,
+  };
+}
+
+function applyKanbanTaskDetailCache(task: Task): Task {
+  const cached = kanbanTaskDetailCache.get(task.id);
+  if (!cached) return task;
+  return {
+    ...task,
+    deadline: task.deadline || cached.deadline,
+    isSupertask: task.isSupertask || cached.isSupertask,
+    description: task.description || cached.description,
+    checklist: task.checklist.length ? task.checklist : cached.checklist,
+    comments: task.comments.length ? task.comments : cached.comments,
+    estimate: task.estimate > 0 ? task.estimate : cached.estimate,
+    spentTime: task.spentTime > 0 ? task.spentTime : cached.spentTime,
+    status: task.status || cached.status,
+    stageId: task.stageId || cached.stageId,
+    priority: task.priority || cached.priority,
+    priorityId: task.priorityId || cached.priorityId,
+    assignee: task.assignee || cached.assignee,
+    detailsLoaded: task.detailsLoaded || cached.detailsLoaded,
+  };
+}
 
 export function isTauriRuntime() {
   return Boolean(window.api);
@@ -183,17 +301,44 @@ function kanbanList(...values: any[]) {
 
 function normalizeKanbanChecklist(task: any) {
   const groups = kanbanList(task?.checklists, task?.checklist_groups, task?.checklistGroups);
-  const direct = kanbanList(task?.checklist, task?.check_list, task?.tasks, task?.subtasks);
-  const items = groups.length
-    ? groups.flatMap((list: any) => {
-        const nested = kanbanList(list?.points, list?.items, list?.tasks);
-        return nested.length ? nested : [list];
-      })
-    : direct;
-  return items.map((item: any) => ({
-    text: item?.text || item?.name || item?.title || item?.label || "",
-    done: Boolean(item?.done || item?.is_done || item?.isDone || item?.completed || item?.checked || item?.status === "done"),
-  })).filter((item: any) => item.text);
+  const direct = kanbanList(task?.checklist, task?.check_list);
+  const normalizeItem = (item: any) => ({
+    text: item?.name || item?.text || item?.title || item?.label || "",
+    done: Boolean(
+      item?.is_done
+      ?? item?.done
+      ?? item?.isDone
+      ?? item?.completed
+      ?? item?.checked
+      ?? item?.status === "done",
+    ),
+  });
+
+  if (groups.length) {
+    return groups.flatMap((list: any) => {
+      const points = kanbanList(list?.points, list?.items, list?.tasks);
+      if (points.length) return points.map(normalizeItem);
+      return [normalizeItem(list)];
+    }).filter((item: { text: string; done: boolean }) => item.text);
+  }
+
+  return direct.map(normalizeItem).filter((item: { text: string; done: boolean }) => item.text);
+}
+
+function kanbanAssigneesFromTask(task: any) {
+  const users = kanbanList(task?.users, task?.workers, task?.responsibles, task?.observers);
+  if (users.length) {
+    return users.map((user: any) => kanbanName(user)).filter(Boolean).join(", ");
+  }
+  return kanbanName(firstValue(
+    task?.assignee,
+    task?.responsible,
+    task?.executor,
+    task?.performer,
+    task?.assigned_to,
+    task?.assignedTo,
+    task?.user,
+  ));
 }
 
 function mergeKanbanTaskDetail(task: any, response: any) {
@@ -217,36 +362,93 @@ function mergeKanbanTaskDetail(task: any, response: any) {
     checklist: detail.checklist || detail.check_list || detail.tasks || task.checklist,
     check_list: detail.check_list || task.check_list,
     checklists: detail.checklists || task.checklists,
+    users: detail.users || task.users,
     comments: detail.comments || task.comments,
   };
 }
 
-function priorityFromKanban(priority: any): TaskPriority {
-  const raw = typeof priority === "object" ? priority?.name || priority?.id : priority;
-  const value = String(raw ?? "").toLowerCase();
-  if (value.includes("крит")) return "Critical";
-  if (value.includes("выс") || value === "3") return "High";
-  if (value.includes("сред") || value === "2") return "Medium";
-  if (value.includes("critical") || value.includes("крит") || value === "1") return "Critical";
-  if (value.includes("high") || value.includes("выс") || value === "2") return "High";
-  if (value.includes("medium") || value.includes("сред") || value === "3") return "Medium";
-  return "Low";
+const kanbanPriorityNameById = new Map<number, string>();
+
+export function rememberKanbanPriority(priority: any) {
+  const priorityId = Number(priority?.id ?? priority);
+  const name = typeof priority === "object" ? kanbanName(priority?.name) : "";
+  if (Number.isFinite(priorityId) && name) {
+    kanbanPriorityNameById.set(priorityId, name);
+  }
 }
 
-function statusFromKanban(task: any): TaskStatus {
-  const raw = String(task?.stage?.name || task?.status?.name || task?.status_name || task?.status || "").toLowerCase();
-  const stageId = Number(task?.stage?.id ?? task?.stage_id ?? task?.stage);
-  if (raw.includes("todo") || raw.includes("to do")) return "To Do";
-  if (raw.includes("backlog")) return "Backlog";
-  if (stageId === 7 || raw.includes("реш")) return "Done";
-  if (stageId === 4 || raw.includes("ревью")) return "Review";
-  if (raw.includes("работ")) return "In Progress";
-  if (raw.includes("нов")) return "To Do";
-  if (stageId === 3 || raw.includes("done") || raw.includes("вып")) return "Done";
-  if (stageId === 2 || raw.includes("progress") || raw.includes("работ")) return "In Progress";
-  if (stageId === 5 || stageId === 6 || raw.includes("test") || raw.includes("review")) return "Review";
-  if (stageId === 1 || raw.includes("new") || raw.includes("нов")) return "To Do";
-  return "Backlog";
+export function resolveKanbanPriorityName(priorityId: number, fallback = "") {
+  if (!Number.isFinite(priorityId)) return fallback;
+  return kanbanPriorityNameById.get(priorityId) || KANBAN_DEFAULT_PRIORITY_NAMES[priorityId] || fallback;
+}
+
+function kanbanPriorityFromTask(task: any): { priorityId: number; priority: TaskPriority } {
+  const rawPriority = task?.priority;
+  const priorityId = Number(
+    typeof rawPriority === "object"
+      ? rawPriority?.id
+      : firstValue(task?.priority_id, task?.priorityId, rawPriority),
+  );
+  const rawName = typeof rawPriority === "object"
+    ? kanbanName(rawPriority?.name)
+    : "";
+
+  if (typeof rawPriority === "object" && rawPriority) {
+    rememberKanbanPriority(rawPriority);
+  }
+
+  if (rawName) {
+    if (Number.isFinite(priorityId)) rememberKanbanPriority({ id: priorityId, name: rawName });
+    return { priorityId: Number.isFinite(priorityId) ? priorityId : 0, priority: rawName };
+  }
+
+  if (Number.isFinite(priorityId)) {
+    const priority = resolveKanbanPriorityName(priorityId, `Приоритет ${priorityId}`);
+    rememberKanbanPriority({ id: priorityId, name: priority });
+    return { priorityId, priority };
+  }
+
+  return { priorityId: 0, priority: "Средний" };
+}
+
+const kanbanStageNameById = new Map<number, string>();
+
+export function rememberKanbanStage(stage: any) {
+  const stageId = Number(stage?.id ?? stage);
+  const name = typeof stage === "object" ? kanbanName(stage?.name) : "";
+  if (Number.isFinite(stageId) && name) {
+    kanbanStageNameById.set(stageId, name);
+  }
+}
+
+export function resolveKanbanStageName(stageId: number, fallback = "") {
+  if (!Number.isFinite(stageId)) return fallback;
+  return kanbanStageNameById.get(stageId) || KANBAN_DEFAULT_STAGE_NAMES[stageId] || fallback;
+}
+
+function kanbanStageFromTask(task: any): { stageId: number; status: TaskStatus } {
+  const stage = task?.stage;
+  const stageId = Number(stage?.id ?? task?.stage_id ?? stage);
+  const rawName = typeof stage === "object"
+    ? kanbanName(stage?.name)
+  : kanbanName(firstValue(task?.status?.name, task?.status_name, task?.status));
+
+  if (typeof stage === "object" && stage) {
+    rememberKanbanStage(stage);
+  }
+
+  if (rawName) {
+    if (Number.isFinite(stageId)) rememberKanbanStage({ id: stageId, name: rawName });
+    return { stageId: Number.isFinite(stageId) ? stageId : 0, status: rawName };
+  }
+
+  if (Number.isFinite(stageId)) {
+    const status = resolveKanbanStageName(stageId, `Стадия ${stageId}`);
+    rememberKanbanStage({ id: stageId, name: status });
+    return { stageId, status };
+  }
+
+  return { stageId: 0, status: "Новые" };
 }
 
 export function normalizeKanbanTask(task: any, baseUrl = ""): Task {
@@ -302,12 +504,16 @@ export function normalizeKanbanTask(task: any, baseUrl = ""): Task {
     task?.estimates?.reduce?.((sum: number, item: any) => sum + (Number(item?.logged_time) || 0), 0),
     task?.work_detail?.reduce?.((sum: number, item: any) => sum + (Number(item?.time_sum) || 0), 0),
   ));
+  const { stageId, status } = kanbanStageFromTask(task);
+  const { priorityId, priority } = kanbanPriorityFromTask(task);
   return {
     id: Number(task?.id ?? Date.now()),
     title: task?.name || task?.title || "Без названия",
     project: projectName,
-    status: statusFromKanban(task),
-    priority: priorityFromKanban(task?.priority),
+    status,
+    stageId,
+    priority,
+    priorityId,
     deadline: dateFromKanbanValue(firstValue(
       task?.deadline,
       task?.deadline_at,
@@ -328,20 +534,9 @@ export function normalizeKanbanTask(task: any, baseUrl = ""): Task {
       task?.dates?.due,
       task?.dates?.finish,
     )),
-    assignee: kanbanName(firstValue(
-      task?.assignee,
-      task?.responsible,
-      task?.executor,
-      task?.performer,
-      task?.assigned_to,
-      task?.assignedTo,
-      task?.users?.[0],
-      task?.workers?.[0],
-      task?.responsibles?.[0],
-      task?.user,
-    )),
+    assignee: kanbanAssigneesFromTask(task),
     isPinned: false,
-    isSupertask: task?.is_supertask === 1 || task?.is_supertask === true,
+    isSupertask: isSupertaskFromKanban(task),
     estimate,
     spentTime,
     description: textFromHtml(task?.description || task?.text || task?.body || task?.content || ""),
@@ -349,7 +544,7 @@ export function normalizeKanbanTask(task: any, baseUrl = ""): Task {
     comments: Array.isArray(task?.comments)
       ? task.comments.map((comment: any) => ({
           author: kanbanName(comment.user || comment.author) || "Автор",
-          text: comment.text || comment.comment || comment.body || "",
+          text: textFromHtml(comment.content || comment.text || comment.comment || comment.body || ""),
           date: comment.created_at || comment.createdAt || comment.date || "",
         }))
       : [],
@@ -358,26 +553,31 @@ export function normalizeKanbanTask(task: any, baseUrl = ""): Task {
   } as Task & { url?: string };
 }
 
-export function mergeKanbanTaskList(existingTasks: Task[], nextTasks: Task[]) {
+export function mergeKanbanTaskList(
+  existingTasks: Task[],
+  nextTasks: Task[],
+  pinnedTaskIds: Set<number> = loadPinnedTaskIds(),
+) {
   const existingById = new Map(existingTasks.map((task) => [task.id, task]));
   return nextTasks.map((task) => {
     const existing = existingById.get(task.id);
-    if (!existing) return task;
-    const detailFields = existing.detailsLoaded
-      ? {
-          description: existing.description,
-          checklist: existing.checklist,
-          comments: existing.comments,
-          detailsLoaded: true,
-        }
-      : {};
+    const isPinned = pinnedTaskIds.has(task.id);
+    if (!existing) {
+      const merged = applyKanbanTaskDetailCache({ ...task, isPinned });
+      rememberKanbanTaskDetail(merged);
+      return merged;
+    }
 
-    return {
+    const detailFields = mergeKanbanDetailFields(task, existing);
+
+    const merged = applyKanbanTaskDetailCache({
       ...existing,
       ...task,
-      isPinned: existing.isPinned,
+      isPinned,
       ...detailFields,
-    };
+    });
+    rememberKanbanTaskDetail(merged);
+    return merged;
   });
 }
 
@@ -488,9 +688,19 @@ export async function loadRealKanbanTasks(config: any, options: { hydrateDetails
   const tasks = unwrapKanbanList(result);
   if (options.hydrateDetails) {
     const hydratedTasks = await hydrateKanbanTaskDetails(tasks, config.kanban.token);
-    return hydratedTasks.map((task: any) => normalizeKanbanTask({ ...task, detailsLoaded: true }, baseUrl));
+    return hydratedTasks
+      .map((task: any) => normalizeKanbanTask({ ...task, detailsLoaded: true }, baseUrl))
+      .map((task) => {
+        const pinned = loadPinnedTaskIds();
+        const withPin = { ...task, isPinned: pinned.has(task.id) };
+        rememberKanbanTaskDetail(withPin);
+        return withPin;
+      });
   }
-  return tasks.map((task: any) => normalizeKanbanTask({ ...task, detailsLoaded: false }, baseUrl));
+  const pinned = loadPinnedTaskIds();
+  return tasks
+    .map((task: any) => normalizeKanbanTask({ ...task, detailsLoaded: false }, baseUrl))
+    .map((task) => applyKanbanTaskDetailCache({ ...task, isPinned: pinned.has(task.id) }));
 }
 
 async function hydrateKanbanTaskDetails(tasks: any[], token: string) {
@@ -512,6 +722,28 @@ async function hydrateKanbanTaskDetails(tasks: any[], token: string) {
   return result;
 }
 
+export async function hydrateKanbanTasksMissingDetails(config: any, tasks: Task[]) {
+  if (!window.api || !config?.kanban?.token) return [];
+  const missing = tasks.filter((task) => !task.detailsLoaded);
+  if (missing.length === 0) return [];
+
+  if (!kanbanBaseUrlCache) {
+    kanbanBaseUrlCache = await window.api.getKanbanBaseUrl().catch(() => "");
+  }
+  const baseUrl = kanbanBaseUrlCache;
+  const hydrated = await hydrateKanbanTaskDetails(
+    missing.map((task) => ({ id: task.id, name: task.title, project: { name: task.project } })),
+    config.kanban.token,
+  );
+  const pinned = loadPinnedTaskIds();
+  return hydrated.map((task: any) => {
+    const normalized = normalizeKanbanTask({ ...task, detailsLoaded: true }, baseUrl);
+    const withPin = { ...normalized, isPinned: pinned.has(normalized.id) };
+    rememberKanbanTaskDetail(withPin);
+    return withPin;
+  });
+}
+
 export async function loadRealKanbanTaskDetail(config: any, task: Task) {
   if (!window.api?.kanbanGetTask || !config?.kanban?.token) return task;
   if (!kanbanBaseUrlCache) {
@@ -522,7 +754,10 @@ export async function loadRealKanbanTaskDetail(config: any, task: Task) {
   if (response?.success === false) {
     throw new Error(response.error || "KANBAN_TASK_LOAD_FAILED");
   }
-  return normalizeKanbanTask({ ...mergeKanbanTaskDetail(task, response), detailsLoaded: true }, baseUrl);
+  const detailedTask = normalizeKanbanTask({ ...mergeKanbanTaskDetail(task, response), detailsLoaded: true }, baseUrl);
+  const withPin = { ...detailedTask, isPinned: loadPinnedTaskIds().has(detailedTask.id) || task.isPinned };
+  rememberKanbanTaskDetail(withPin);
+  return withPin;
 }
 
 export async function loadRealCalendarEvents(config: any) {

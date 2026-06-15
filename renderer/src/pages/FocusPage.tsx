@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { formatSeconds, formatMinutes, PROJECT_COLORS, PRIORITY_COLORS, PRIORITY_LABELS, STATUS_LABELS, Task } from "@/data/mockData";
+import { formatSeconds, formatMinutes, PROJECT_COLORS, Task, isKanbanDoneStatus, taskStatusLabel, taskPriorityLabel, priorityColorForTask, KANBAN_STAGE_IDS } from "@/data/mockData";
+import { resolveKanbanStageName } from "@/lib/tauriDataApi";
 import { Play, Pause, Square, CheckCircle, Pin, Coffee, Clock, Users, ExternalLink, Target, Video, CalendarClock, AlertTriangle } from "lucide-react";
 import { useLocation } from "wouter";
 import { soundToast as toast } from "@/lib/appAudio";
@@ -172,7 +173,7 @@ export default function FocusPage() {
   const todayHistory = history.filter(h => h.date === today);
   const totalMinutesToday = todayHistory.reduce((s, h) => s + h.duration, 0);
   const tasksWorkedOn = new Set(todayHistory.map(h => h.taskId)).size;
-  const tasksDone = tasks.filter(t => t.status === 'Done').length;
+  const tasksDone = tasks.filter(t => isKanbanDoneStatus(t.status)).length;
 
   const focusTasks = useMemo(() => {
     const score = (task: Task) => {
@@ -184,7 +185,7 @@ export default function FocusPage() {
       return 4;
     };
     return tasks
-      .filter(t => t.status !== 'Done' && t.id !== timer.activeTask?.id)
+      .filter(t => !isKanbanDoneStatus(t.status) && t.id !== timer.activeTask?.id)
       .filter(t => t.isPinned || getDeadlineState(t.deadline))
       .sort((a, b) => score(a) - score(b) || a.title.localeCompare(b.title))
       .slice(0, 8);
@@ -207,10 +208,10 @@ export default function FocusPage() {
                       {timer.activeTask.project}
                     </span>
                     <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
-                      {STATUS_LABELS[timer.activeTask.status]}
+                      {taskStatusLabel(timer.activeTask.status)}
                     </span>
-                    <span className="text-[11px] font-medium" style={{ color: PRIORITY_COLORS[timer.activeTask.priority] }}>
-                      {PRIORITY_LABELS[timer.activeTask.priority]}
+                    <span className="text-[11px] font-medium" style={{ color: priorityColorForTask(timer.activeTask.priority) }}>
+                      {taskPriorityLabel(timer.activeTask.priority)}
                     </span>
                   </div>
                   <h2 className="text-lg font-semibold leading-tight">{timer.activeTask.title}</h2>
@@ -268,7 +269,14 @@ export default function FocusPage() {
                     if (timer.elapsed > 0) {
                       requestStop();
                     } else {
-                      dispatch({ type: 'UPDATE_TASK', task: { ...timer.activeTask!, status: 'Done' } });
+                      dispatch({
+                        type: 'UPDATE_TASK',
+                        task: {
+                          ...timer.activeTask!,
+                          status: resolveKanbanStageName(KANBAN_STAGE_IDS.RESOLVED, "Решена"),
+                          stageId: KANBAN_STAGE_IDS.RESOLVED,
+                        },
+                      });
                       dispatch({ type: 'CONFIRM_STOP', comment: 'Задача завершена' });
                       toast.success('Задача завершена');
                     }

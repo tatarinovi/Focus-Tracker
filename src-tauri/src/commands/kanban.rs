@@ -71,9 +71,13 @@ async fn kanban_request(
 
 #[tauri::command]
 pub async fn kanban_login(email: String, password: String) -> Result<Value, String> {
-    let url = format!("{}/api/auth/token", kanban_base_url());
-    let body = serde_json::json!({ "email": email, "password": password });
-    kanban_request("Authorization", "POST", &url, None, Some(&body)).await
+    let url = format!(
+        "{}/api/auth/token?email={}&password={}",
+        kanban_base_url(),
+        urlencoding::encode(&email),
+        urlencoding::encode(&password),
+    );
+    kanban_request("Authorization", "POST", &url, None, None).await
 }
 
 #[tauri::command]
