@@ -3,8 +3,15 @@ const path = require("node:path");
 
 const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const tag = process.env.GITHUB_REF_NAME || "";
+const tagVersion = tag.replace(/^v/, "");
 const channel = tag.includes("beta") ? "beta" : "stable";
 const releaseNotes = process.env.RELEASE_NOTES || "See changelog";
+
+if (tagVersion && tagVersion !== packageJson.version) {
+  throw new Error(
+    `Tag version ${tagVersion} does not match package.json version ${packageJson.version}`
+  );
+}
 
 function readFragments(dir) {
   const platforms = {};
@@ -24,7 +31,7 @@ if (!Object.keys(platforms).length) {
 }
 
 const manifest = {
-  version: packageJson.version,
+  version: tagVersion || packageJson.version,
   notes: releaseNotes,
   pub_date: new Date().toISOString(),
   platforms,

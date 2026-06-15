@@ -140,6 +140,9 @@ jobs:
 
       - name: Prepare GitHub Pages deploy directory
         run: |
+          CHANNEL=$([[ "${{ github.ref_name }}" == *beta* ]] && echo beta || echo stable)
+          OTHER=$([[ "$CHANNEL" == stable ]] && echo beta || echo stable)
+
           mkdir -p deploy/updates
           cp renderer-dist/landing.html deploy/index.html
           cp -r renderer-dist/assets deploy/assets
@@ -147,8 +150,20 @@ jobs:
           cp renderer-dist/favicon.svg deploy/ 2>/dev/null || true
           cp renderer-dist/apple-touch-icon.svg deploy/ 2>/dev/null || true
           cp -r renderer-dist/screenshots deploy/screenshots 2>/dev/null || true
-          cp updater-cache/*.json deploy/updates/ 2>/dev/null || true
-          cp public-updates/updates/*.json deploy/updates/
+          cp "public-updates/updates/${CHANNEL}.json" "deploy/updates/${CHANNEL}.json"
+          cp "updater-cache/${OTHER}.json" "deploy/updates/${OTHER}.json" 2>/dev/null || true
+
+      - name: Verify updater manifest version
+        run: |
+          CHANNEL=$([[ "${{ github.ref_name }}" == *beta* ]] && echo beta || echo stable)
+          EXPECTED="${{ github.ref_name }}"
+          EXPECTED="${EXPECTED#v}"
+          ACTUAL=$(node -p "JSON.parse(require('fs').readFileSync('deploy/updates/${CHANNEL}.json','utf8')).version")
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "Expected ${CHANNEL}.json version ${EXPECTED}, got ${ACTUAL}"
+            exit 1
+          fi
+          echo "Verified ${CHANNEL}.json version ${ACTUAL}"
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3
