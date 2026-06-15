@@ -8,6 +8,7 @@ import {
   detectMeetingProvider,
   roundToQuarter,
 } from "@/data/mockData";
+import { expandRawCalendarEvents } from "@/lib/calendarRecurrence";
 
 export const api = () => window.api;
 
@@ -530,8 +531,10 @@ export async function loadRealCalendarEvents(config: any) {
   const result = await window.api.fetchCalendarCalDav(calendarUrl);
   if (!result?.success) return [];
   const source: any[] = Array.isArray(result.data) ? result.data : Object.values(result.data || {});
-  return source
-    .filter((item: any) => item?.type === "VEVENT" || item?.summary || item?.title)
+  const expanded = expandRawCalendarEvents(
+    source.filter((item: any) => item?.type === "VEVENT" || item?.summary || item?.title),
+  );
+  return expanded
     .map(normalizeCalendarEvent)
     .filter((event): event is CalendarEvent & { icsUrl?: string } => Boolean(event));
 }

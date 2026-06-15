@@ -191,11 +191,46 @@ fn parse_ics_text(text: &str, ics_url: &str) -> Vec<Value> {
                 if let Some(url) = current_event.get("URL") {
                     event.insert("url".to_string(), Value::String(decode_ics_text(url)));
                 }
+                if let Some(uid) = current_event.get("UID") {
+                    event.insert("uid".to_string(), Value::String(uid.clone()));
+                }
                 if let Some(start) = current_event.get("DTSTART") {
                     event.insert("start".to_string(), Value::String(start.clone()));
                 }
                 if let Some(end) = current_event.get("DTEND") {
                     event.insert("end".to_string(), Value::String(end.clone()));
+                }
+                if let Some(duration) = current_event.get("DURATION") {
+                    event.insert("duration".to_string(), Value::String(duration.clone()));
+                }
+                if let Some(rrule) = current_event.get("RRULE") {
+                    event.insert("rrule".to_string(), Value::String(rrule.clone()));
+                }
+                if let Some(exdate) = current_event.get("EXDATE") {
+                    let dates: Vec<Value> = exdate
+                        .split(',')
+                        .map(|part| Value::String(part.trim().to_string()))
+                        .filter(|part| part.as_str().unwrap_or("").len() > 0)
+                        .collect();
+                    if !dates.is_empty() {
+                        event.insert("exdates".to_string(), Value::Array(dates));
+                    }
+                }
+                if let Some(rdate) = current_event.get("RDATE") {
+                    let dates: Vec<Value> = rdate
+                        .split(',')
+                        .map(|part| Value::String(part.trim().to_string()))
+                        .filter(|part| part.as_str().unwrap_or("").len() > 0)
+                        .collect();
+                    if !dates.is_empty() {
+                        event.insert("rdates".to_string(), Value::Array(dates));
+                    }
+                }
+                if let Some(recurrence_id) = current_event.get("RECURRENCE-ID") {
+                    event.insert(
+                        "recurrenceId".to_string(),
+                        Value::String(recurrence_id.clone()),
+                    );
                 }
                 if let Some(status) = current_event.get("STATUS") {
                     event.insert("status".to_string(), Value::String(status.clone()));
@@ -207,7 +242,16 @@ fn parse_ics_text(text: &str, ics_url: &str) -> Vec<Value> {
         } else if in_event {
             if let Some((key, value)) = trimmed.split_once(':') {
                 let key = key.split(';').next().unwrap_or(key).to_string();
-                current_event.insert(key, value.to_string());
+                if key == "EXDATE" || key == "RDATE" {
+                    if let Some(existing) = current_event.get_mut(&key) {
+                        existing.push(',');
+                        existing.push_str(value);
+                    } else {
+                        current_event.insert(key, value.to_string());
+                    }
+                } else {
+                    current_event.insert(key, value.to_string());
+                }
             }
         }
     }
