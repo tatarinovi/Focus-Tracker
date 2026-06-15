@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
 import { Task, PROJECT_COLORS, formatMinutes, sortKanbanStatuses, sortKanbanPriorities, taskStatusLabel, taskPriorityLabel, priorityColorForTask, KANBAN_STAGE_ORDER } from "@/data/mockData";
-import { Search, LayoutGrid, List, Pin, Star, X, Play, CheckCircle, RefreshCw } from "lucide-react";
+import { Search, LayoutGrid, List, Pin, Star, X, Play, CheckCircle, RefreshCw, FilterX } from "lucide-react";
+import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import { soundToast as toast } from "@/lib/appAudio";
 
 const KANBAN_BOARD_STATUSES = [...KANBAN_STAGE_ORDER];
@@ -254,9 +255,9 @@ export default function KanbanPage() {
   const { tasks } = state;
   const [view, setView] = useState<'list' | 'board'>('list');
   const [search, setSearch] = useState('');
-  const [filterProject, setFilterProject] = useState('');
-  const [filterPriority, setFilterPriority] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+  const [filterProject, setFilterProject] = useState<string[]>([]);
+  const [filterPriority, setFilterPriority] = useState<string[]>([]);
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
   const [filterPinned, setFilterPinned] = useState(false);
   const [filterSuper, setFilterSuper] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -280,12 +281,25 @@ export default function KanbanPage() {
     [tasks],
   );
 
+  const hasActiveFilters = Boolean(
+    search || filterProject.length || filterPriority.length || filterStatus.length || filterPinned || filterSuper,
+  );
+
+  const resetFilters = () => {
+    setSearch('');
+    setFilterProject([]);
+    setFilterPriority([]);
+    setFilterStatus([]);
+    setFilterPinned(false);
+    setFilterSuper(false);
+  };
+
   const filtered = useMemo(() => {
     return tasks.filter(t => {
       if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
-      if (filterProject && t.project !== filterProject) return false;
-      if (filterPriority && t.priority !== filterPriority) return false;
-      if (filterStatus && t.status !== filterStatus) return false;
+      if (filterProject.length && !filterProject.includes(t.project)) return false;
+      if (filterPriority.length && !filterPriority.includes(t.priority)) return false;
+      if (filterStatus.length && !filterStatus.includes(t.status)) return false;
       if (filterPinned && !t.isPinned) return false;
       if (filterSuper && !t.isSupertask) return false;
       return true;
@@ -315,20 +329,41 @@ export default function KanbanPage() {
             />
           </div>
 
-          <select value={filterProject} onChange={e => setFilterProject(e.target.value)} className="bg-input border border-border rounded-md px-2 py-1.5 text-xs focus:outline-none">
-            <option value="">Все проекты</option>
-            {projects.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <FilterMultiSelect
+            data-testid="filter-kanban-project"
+            values={filterProject}
+            onChange={setFilterProject}
+            placeholder="Все проекты"
+            options={projects.map(p => ({ value: p, label: p }))}
+          />
 
-          <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} className="bg-input border border-border rounded-md px-2 py-1.5 text-xs focus:outline-none">
-            <option value="">Все приоритеты</option>
-            {priorityOptions.map(p => <option key={p} value={p}>{taskPriorityLabel(p)}</option>)}
-          </select>
+          <FilterMultiSelect
+            data-testid="filter-kanban-priority"
+            values={filterPriority}
+            onChange={setFilterPriority}
+            placeholder="Все приоритеты"
+            options={priorityOptions.map(p => ({ value: p, label: taskPriorityLabel(p) }))}
+          />
 
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-input border border-border rounded-md px-2 py-1.5 text-xs focus:outline-none">
-            <option value="">Все статусы</option>
-            {statusOptions.map(s => <option key={s} value={s}>{taskStatusLabel(s)}</option>)}
-          </select>
+          <FilterMultiSelect
+            data-testid="filter-kanban-status"
+            values={filterStatus}
+            onChange={setFilterStatus}
+            placeholder="Все статусы"
+            options={statusOptions.map(s => ({ value: s, label: taskStatusLabel(s) }))}
+          />
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              data-testid="button-kanban-reset-filters"
+              onClick={resetFilters}
+              className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              title="Сбросить фильтры"
+            >
+              <FilterX className="w-3 h-3" /> Сбросить
+            </button>
+          )}
 
           <button
             onClick={() => setFilterPinned(!filterPinned)}
