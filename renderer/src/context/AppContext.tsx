@@ -4,6 +4,16 @@ import { hydrateKanbanTasksMissingDetails, loadRealCalendarEvents, loadRealHisto
 import { KANBAN_STAGE_IDS, isKanbanPreWorkStage } from '@/data/mockData';
 import { toast } from 'sonner';
 import { AppSoundKey, playAppSound, setAppAudioVolume, soundToast, stopAllSounds } from '@/lib/appAudio';
+import {
+  bitrixTimemanClose,
+  bitrixTimemanOpen,
+  bitrixTimemanPause,
+  bitrixTimemanResume,
+  bitrixTimemanStatus,
+  isBitrixConfigured,
+} from '@/lib/bitrixTimeman';
+import { BitrixTimemanError } from '@/lib/bitrixTypes';
+import type { BitrixTimemanStatusSnapshot } from '@/lib/bitrixTypes';
 
 export interface TimerState {
   status: 'idle' | 'running' | 'paused';
@@ -21,11 +31,85 @@ export interface PomodoroState {
   completionCount: number;
 }
 
-export interface LunchState {
-  active: boolean;
-  startTime: number | null;
-  lunchElapsed: number;
+export type BitrixSyncStatus = 'idle' | 'syncing' | 'online' | 'error';
+export type BitrixDayPhase = 'not_started' | 'working' | 'break' | 'finished';
+
+/** @deprecated use BitrixSyncStatus */
+export type LunchBitrixStatus = BitrixSyncStatus;
+
+export interface BitrixTimemanState {
+  phase: BitrixDayPhase;
+  syncStatus: BitrixSyncStatus;
+  dayStartedAt: number | null;
+  breakStartedAt: number | null;
+  dayEndedAt: number | null;
+  workElapsed: number;
+  breakElapsed: number;
+  /** Суммарное время перерывов за день (аналог TIME_LEAKS в Bitrix24). */
+  breakUsedTodaySeconds: number;
+  breakLimitMinutes: number;
+  workDayLimitHours: number;
   previousTask: Task | null;
+  /** Секунды таймера задачи на момент ухода на перерыв. */
+  pausedElapsed: number;
+  errorMessage: string | null;
+  portalUrl: string | null;
+}
+
+function defaultBitrixTimemanState(): BitrixTimemanState {
+  return {
+    phase: 'not_started',
+    syncStatus: 'idle',
+    dayStartedAt: null,
+    breakStartedAt: null,
+    dayEndedAt: null,
+    workElapsed: 0,
+    breakElapsed: 0,
+    breakUsedTodaySeconds: 0,
+    breakLimitMinutes: 60,
+    workDayLimitHours: 8,
+    previousTask: null,
+    pausedElapsed: 0,
+    errorMessage: null,
+    portalUrl: null,
+  };
+}
+
+function restoreBitrixTimemanState(value: unknown): BitrixTimemanState {
+  const base = defaultBitrixTimemanState();
+  if (!value || typeof value !== 'object') return base;
+  const saved = value as Partial<BitrixTimemanState> & {
+    active?: boolean;
+    bitrix?: { status?: BitrixSyncStatus; breakActive?: boolean };
+    lunchElapsed?: number;
+    startTime?: number | null;
+  };
+
+  if ('phase' in saved && saved.phase) {
+    const merged = { ...base, ...saved };
+    if (merged.phase === 'break' && (saved.breakElapsed ?? 0) > 0) {
+      return {
+        ...merged,
+        breakUsedTodaySeconds: (merged.breakUsedTodaySeconds ?? 0) + (saved.breakElapsed ?? 0),
+        breakElapsed: 0,
+      };
+    }
+    return merged;
+  }
+
+  if (saved.active) {
+    return {
+      ...base,
+      phase: 'break',
+      syncStatus: saved.bitrix?.status ?? 'online',
+      breakStartedAt: saved.startTime ?? Date.now(),
+      breakElapsed: saved.lunchElapsed ?? 0,
+      previousTask: saved.previousTask ?? null,
+      pausedElapsed: saved.lunchElapsed ?? 0,
+    };
+  }
+
+  return base;
 }
 
 export interface Settings {
@@ -40,6 +124,7 @@ export interface Settings {
   calendar: { url: string; login: string; password: string; reminders: boolean };
   jira: { url: string; login: string; token: string; password: string; defaultProject: string };
   resonance: { login: string; password: string; connected: boolean; lastChecked: string };
+  bitrix: { url: string; webhook: string; connected: boolean; lastChecked: string };
 }
 
 interface AppState {
@@ -51,7 +136,7 @@ interface AppState {
   notifications: AppNotification[];
   timer: TimerState;
   pomodoro: PomodoroState;
-  lunch: LunchState;
+  bitrixTimeman: BitrixTimemanState;
   settings: Settings;
   stopDialogOpen: boolean;
   switchDialogOpen: boolean;
@@ -70,15 +155,20 @@ type Action =
   | { type: 'RESUME_TIMER' }
   | { type: 'TICK' }
   | { type: 'POMODORO_TICK' }
-  | { type: 'LUNCH_TICK' }
+  | { type: 'TIMEMAN_TICK' }
   | { type: 'OPEN_STOP_DIALOG' }
   | { type: 'CLOSE_STOP_DIALOG' }
   | { type: 'CONFIRM_STOP'; comment: string }
   | { type: 'REQUEST_SWITCH'; task: Task }
   | { type: 'CANCEL_SWITCH' }
   | { type: 'CONFIRM_SWITCH'; action: 'switch' | 'complete' | 'cancel'; comment?: string }
-  | { type: 'START_LUNCH' }
-  | { type: 'END_LUNCH' }
+  | { type: 'BITRIX_START_DAY' }
+  | { type: 'BITRIX_START_BREAK' }
+  | { type: 'BITRIX_RESUME_WORK' }
+  | { type: 'BITRIX_END_DAY' }
+  | { type: 'BITRIX_SYNC'; status: BitrixSyncStatus }
+  | { type: 'BITRIX_APPLY_STATUS'; snapshot: BitrixTimemanStatusSnapshot }
+  | { type: 'BITRIX_SET_ERROR'; message: string | null; portalUrl?: string | null }
   | { type: 'CONFIRM_LUNCH_RESTORE'; restore: boolean }
   | { type: 'TOGGLE_NOTIF' }
   | { type: 'TOGGLE_COMPACT' }
@@ -120,6 +210,7 @@ const DEFAULT_SETTINGS: Settings = {
   calendar: { url: '', login: '', password: '', reminders: true },
   jira: { url: '', login: '', token: '', password: '', defaultProject: '' },
   resonance: { login: '', password: '', connected: false, lastChecked: '' },
+  bitrix: { url: '', webhook: '', connected: false, lastChecked: '' },
 };
 
 function loadState(): Partial<AppState> {
@@ -158,7 +249,7 @@ function saveState(state: AppState) {
       tasks: [], history: state.history, taskCompletions: state.taskCompletions,
       notes: state.notes, calendarEvents: [],
       notifications: state.notifications, settings: safeSettings,
-      timer: state.timer, pomodoro: state.pomodoro, lunch: state.lunch,
+      timer: state.timer, pomodoro: state.pomodoro, bitrixTimeman: state.bitrixTimeman,
     };
     localStorage.setItem('ft_state', JSON.stringify(toSave));
   } catch { /* ignore */ }
@@ -197,6 +288,7 @@ function restoreSettings(value: Partial<Settings> | undefined): Settings {
     kanban: { ...DEFAULT_SETTINGS.kanban, ...(value?.kanban ?? {}) },
     calendar: { ...DEFAULT_SETTINGS.calendar, ...(value?.calendar ?? {}) },
     jira: { ...DEFAULT_SETTINGS.jira, ...(value?.jira ?? {}) },
+    bitrix: { ...DEFAULT_SETTINGS.bitrix, ...(value?.bitrix ?? {}) },
     resonance: { ...DEFAULT_SETTINGS.resonance, ...(value?.resonance ?? {}) },
   };
 }
@@ -210,7 +302,9 @@ const initialState: AppState = {
   notifications: saved.notifications ?? [],
   timer: restoreTimer(saved.timer),
   pomodoro: saved.pomodoro ? { ...DEFAULT_POMODORO, ...saved.pomodoro } : DEFAULT_POMODORO,
-  lunch: saved.lunch ?? { active: false, startTime: null, lunchElapsed: 0, previousTask: null },
+  bitrixTimeman: restoreBitrixTimemanState(
+    saved.bitrixTimeman ?? (saved as { lunch?: unknown }).lunch,
+  ),
   settings: restoreSettings(saved.settings),
   stopDialogOpen: false,
   switchDialogOpen: false,
@@ -226,6 +320,12 @@ const initialState: AppState = {
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'START_TIMER':
+      if (
+        state.timer.status === 'paused'
+        && state.timer.activeTask?.id === action.task.id
+      ) {
+        return { ...state, timer: { ...state.timer, status: 'running' } };
+      }
       return { ...state, timer: { status: 'running', activeTask: action.task, elapsed: 0 } };
     case 'PAUSE_TIMER':
       return { ...state, timer: { ...state.timer, status: 'paused' } };
@@ -259,9 +359,22 @@ function reducer(state: AppState, action: Action): AppState {
       }
       return { ...state, pomodoro: { ...state.pomodoro, remaining: newRemaining } };
     }
-    case 'LUNCH_TICK':
-      if (!state.lunch.active) return state;
-      return { ...state, lunch: { ...state.lunch, lunchElapsed: state.lunch.lunchElapsed + 1 } };
+    case 'TIMEMAN_TICK': {
+      const { bitrixTimeman } = state;
+      if (bitrixTimeman.phase === 'working') {
+        return { ...state, bitrixTimeman: { ...bitrixTimeman, workElapsed: bitrixTimeman.workElapsed + 1 } };
+      }
+      if (bitrixTimeman.phase === 'break') {
+        return {
+          ...state,
+          bitrixTimeman: {
+            ...bitrixTimeman,
+            breakUsedTodaySeconds: bitrixTimeman.breakUsedTodaySeconds + 1,
+          },
+        };
+      }
+      return state;
+    }
     case 'OPEN_STOP_DIALOG':
       return { ...state, stopDialogOpen: true, timer: { ...state.timer, status: 'paused' } };
     case 'CLOSE_STOP_DIALOG':
@@ -325,23 +438,117 @@ function reducer(state: AppState, action: Action): AppState {
         taskCompletions: newCompletions,
       };
     }
-    case 'START_LUNCH': {
-      const prevTask = state.timer.activeTask;
+    case 'BITRIX_START_DAY':
       return {
         ...state,
-        lunch: { active: true, startTime: Date.now(), lunchElapsed: 0, previousTask: prevTask },
-        timer: prevTask ? { ...state.timer, status: 'paused' } : state.timer,
+        bitrixTimeman: {
+          ...state.bitrixTimeman,
+          phase: 'working',
+          dayStartedAt: Date.now(),
+          dayEndedAt: null,
+          workElapsed: 0,
+          breakElapsed: 0,
+          breakUsedTodaySeconds: 0,
+          breakStartedAt: null,
+        },
+      };
+    case 'BITRIX_START_BREAK': {
+      const prevTask = state.timer.activeTask;
+      const pausedElapsed = prevTask ? state.timer.elapsed : 0;
+      return {
+        ...state,
+        bitrixTimeman: {
+          ...state.bitrixTimeman,
+          phase: 'break',
+          breakStartedAt: Date.now(),
+          previousTask: prevTask,
+          pausedElapsed,
+        },
+        timer: prevTask
+          ? { status: 'paused', activeTask: prevTask, elapsed: pausedElapsed }
+          : state.timer,
       };
     }
-    case 'END_LUNCH':
-      return { ...state, lunch: { ...state.lunch, active: false }, lunchRestoreOpen: state.lunch.previousTask !== null };
+    case 'BITRIX_RESUME_WORK': {
+      const prevTask = state.bitrixTimeman.previousTask;
+      const elapsed = state.bitrixTimeman.pausedElapsed || state.timer.elapsed;
+      return {
+        ...state,
+        bitrixTimeman: {
+          ...state.bitrixTimeman,
+          phase: 'working',
+          breakStartedAt: null,
+        },
+        lunchRestoreOpen: prevTask !== null,
+        timer: prevTask
+          ? { status: 'paused', activeTask: prevTask, elapsed }
+          : state.timer,
+      };
+    }
+    case 'BITRIX_END_DAY':
+      return {
+        ...state,
+        bitrixTimeman: {
+          ...state.bitrixTimeman,
+          phase: 'finished',
+          dayEndedAt: Date.now(),
+          breakStartedAt: null,
+        },
+      };
+    case 'BITRIX_SYNC':
+      return {
+        ...state,
+        bitrixTimeman: {
+          ...state.bitrixTimeman,
+          syncStatus: action.status,
+        },
+      };
+    case 'BITRIX_APPLY_STATUS': {
+      const { snapshot } = action;
+      const prev = state.bitrixTimeman;
+      const onBreak = snapshot.phase === 'break';
+      const timer = onBreak && state.timer.status === 'running'
+        ? { ...state.timer, status: 'paused' as const }
+        : state.timer;
+      return {
+        ...state,
+        timer,
+        bitrixTimeman: {
+          ...prev,
+          phase: snapshot.phase,
+          syncStatus: snapshot.online ? 'online' : 'idle',
+          dayStartedAt: snapshot.dayStartedAt,
+          dayEndedAt: snapshot.dayEndedAt,
+          breakStartedAt: snapshot.breakStartedAt,
+          workElapsed: snapshot.workElapsed,
+          breakUsedTodaySeconds: snapshot.breakUsedTodaySeconds,
+          breakElapsed: 0,
+          errorMessage: null,
+          portalUrl: snapshot.portalUrl ?? prev.portalUrl,
+        },
+      };
+    }
+    case 'BITRIX_SET_ERROR':
+      return {
+        ...state,
+        bitrixTimeman: {
+          ...state.bitrixTimeman,
+          errorMessage: action.message,
+          portalUrl: action.portalUrl ?? state.bitrixTimeman.portalUrl,
+        },
+      };
     case 'CONFIRM_LUNCH_RESTORE': {
-      const prevTask = state.lunch.previousTask;
+      const prevTask = state.bitrixTimeman.previousTask;
+      const elapsed = state.bitrixTimeman.pausedElapsed || state.timer.elapsed;
       return {
         ...state,
         lunchRestoreOpen: false,
-        lunch: { ...state.lunch, previousTask: null },
-        timer: action.restore && prevTask ? { status: 'running', activeTask: prevTask, elapsed: state.timer.elapsed } : state.timer,
+        bitrixTimeman: { ...state.bitrixTimeman, previousTask: null, pausedElapsed: 0 },
+        timer: action.restore && prevTask
+          ? { status: 'running', activeTask: prevTask, elapsed }
+          : prevTask
+            ? { status: 'paused', activeTask: prevTask, elapsed }
+            : state.timer,
       };
     }
     case 'TOGGLE_NOTIF':
@@ -467,8 +674,14 @@ interface AppContextValue {
   cancelStop: () => void;
   requestSwitch: (task: Task) => void;
   confirmSwitch: (action: 'switch' | 'complete' | 'cancel', comment?: string) => void;
-  startLunch: () => void;
-  endLunch: () => void;
+  bitrixStartDay: () => Promise<void>;
+  bitrixStartBreak: () => Promise<void>;
+  bitrixResumeWork: () => Promise<void>;
+  bitrixEndDay: () => Promise<void>;
+  /** @deprecated use bitrixStartBreak */
+  startLunch: () => Promise<void>;
+  /** @deprecated use bitrixResumeWork */
+  endLunch: () => Promise<void>;
   ensureKanbanLoaded: (force?: boolean, notify?: boolean) => Promise<void>;
   ensureKanbanTaskDetail: (taskId: number) => Promise<Task | null>;
   ensureCalendarLoaded: (force?: boolean) => Promise<void>;
@@ -546,6 +759,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
               ...(config.audio || {}),
             },
             jira: { ...DEFAULT_SETTINGS.jira, url: config.jira_url || '', login: config.jira_user || '', token: '', password: '', defaultProject: config.jira_project || '' },
+            bitrix: {
+              ...DEFAULT_SETTINGS.bitrix,
+              url: config.bitrix_url || '',
+              connected: config.bitrix?.connected === true,
+              lastChecked: config.bitrix?.lastChecked || '',
+            },
             resonance: {
               ...DEFAULT_SETTINGS.resonance,
               login: config.resonance?.login || '',
@@ -563,6 +782,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     bootstrap();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!isBitrixConfigured(state.config)) return;
+    let cancelled = false;
+    async function syncBitrixTimeman() {
+      const config = stateRef.current.config;
+      dispatch({ type: 'BITRIX_SYNC', status: 'syncing' });
+      try {
+        const snapshot = await bitrixTimemanStatus(config);
+        if (cancelled) return;
+        dispatch({ type: 'BITRIX_APPLY_STATUS', snapshot });
+        dispatch({ type: 'BITRIX_SYNC', status: snapshot.online ? 'online' : 'idle' });
+      } catch (error) {
+        console.error('[Focus Tracker] bitrix timeman status failed', error);
+        if (cancelled) return;
+        if (error instanceof BitrixTimemanError && error.code === 'EXPIRED') {
+          dispatch({ type: 'BITRIX_SET_ERROR', message: error.message, portalUrl: error.portalUrl });
+        }
+        dispatch({ type: 'BITRIX_SYNC', status: 'error' });
+      }
+    }
+    syncBitrixTimeman();
+    return () => { cancelled = true; };
+  }, [state.config?.bitrix_url, state.config?.bitrix?.connected]);
 
   useEffect(() => {
     saveState(state);
@@ -642,10 +885,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [state.pomodoro.isRunning]);
 
   useEffect(() => {
-    if (!state.lunch.active) return;
-    const interval = setInterval(() => dispatch({ type: 'LUNCH_TICK' }), 1000);
+    const phase = state.bitrixTimeman.phase;
+    if (phase !== 'working' && phase !== 'break') return;
+    const interval = setInterval(() => dispatch({ type: 'TIMEMAN_TICK' }), 1000);
     return () => clearInterval(interval);
-  }, [state.lunch.active]);
+  }, [state.bitrixTimeman.phase]);
 
   useEffect(() => {
     if (state.pomodoro.completionCount === 0) return;
@@ -705,8 +949,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   ]);
 
   useEffect(() => {
-    window.api?.setTimerCloseGuard(state.timer.status !== 'idle').catch(() => {});
-  }, [state.timer.status]);
+    const workDayOpen = state.bitrixTimeman.phase === 'working' || state.bitrixTimeman.phase === 'break';
+    const shouldBlockClose = state.timer.status !== 'idle' || workDayOpen;
+    window.api?.setTimerCloseGuard(shouldBlockClose).catch(() => {});
+  }, [state.timer.status, state.bitrixTimeman.phase]);
 
   useEffect(() => {
     const off = window.api?.onReminderClosed?.(() => {
@@ -842,13 +1088,87 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toast.success('Задача переключена');
     }
   }, [persistTaskWork, state.config, state.pendingSwitchTask, state.timer.activeTask, state.timer.elapsed]);
-  const startLunch = useCallback(() => {
-    dispatch({ type: 'START_LUNCH' });
-    soundToast.info('Ушёл на обед — таймер на паузе');
+  const handleBitrixFailure = useCallback((error: unknown, fallbackMessage: string) => {
+    if (error instanceof BitrixTimemanError && error.code === 'EXPIRED') {
+      dispatch({ type: 'BITRIX_SET_ERROR', message: error.message, portalUrl: error.portalUrl });
+      dispatch({ type: 'BITRIX_SYNC', status: 'error' });
+      soundToast.error(error.message);
+      return;
+    }
+    dispatch({ type: 'BITRIX_SYNC', status: 'error' });
+    soundToast.error(fallbackMessage);
   }, []);
-  const endLunch = useCallback(() => {
-    dispatch({ type: 'END_LUNCH' });
-  }, []);
+
+  const bitrixStartDay = useCallback(async () => {
+    const phase = stateRef.current.bitrixTimeman.phase;
+    if (phase !== 'not_started') {
+      soundToast.error('Рабочий день уже начат');
+      return;
+    }
+    dispatch({ type: 'BITRIX_SYNC', status: 'syncing' });
+    try {
+      const snapshot = await bitrixTimemanOpen(phase, stateRef.current.config);
+      dispatch({ type: 'BITRIX_APPLY_STATUS', snapshot });
+      dispatch({ type: 'BITRIX_SYNC', status: 'online' });
+      soundToast.success('Рабочий день начат в Bitrix24');
+    } catch (error) {
+      handleBitrixFailure(error, 'Не удалось начать рабочий день в Bitrix24');
+    }
+  }, [handleBitrixFailure]);
+
+  const bitrixStartBreak = useCallback(async () => {
+    const phase = stateRef.current.bitrixTimeman.phase;
+    if (phase !== 'working') {
+      soundToast.error('Сначала начните рабочий день');
+      return;
+    }
+    dispatch({ type: 'BITRIX_SYNC', status: 'syncing' });
+    try {
+      const snapshot = await bitrixTimemanPause(phase, stateRef.current.config);
+      dispatch({ type: 'BITRIX_START_BREAK' });
+      dispatch({ type: 'BITRIX_APPLY_STATUS', snapshot });
+      dispatch({ type: 'BITRIX_SYNC', status: 'online' });
+      soundToast.info('Перерыв начат — таймер задачи на паузе');
+    } catch (error) {
+      handleBitrixFailure(error, 'Не удалось начать перерыв в Bitrix24');
+    }
+  }, [handleBitrixFailure]);
+
+  const bitrixResumeWork = useCallback(async () => {
+    const phase = stateRef.current.bitrixTimeman.phase;
+    if (phase !== 'break') return;
+    dispatch({ type: 'BITRIX_SYNC', status: 'syncing' });
+    try {
+      const snapshot = await bitrixTimemanResume(phase, stateRef.current.config);
+      dispatch({ type: 'BITRIX_RESUME_WORK' });
+      dispatch({ type: 'BITRIX_APPLY_STATUS', snapshot });
+      dispatch({ type: 'BITRIX_SYNC', status: 'online' });
+      soundToast.success('Работа возобновлена');
+    } catch (error) {
+      handleBitrixFailure(error, 'Не удалось завершить перерыв в Bitrix24');
+    }
+  }, [handleBitrixFailure]);
+
+  const bitrixEndDay = useCallback(async () => {
+    const phase = stateRef.current.bitrixTimeman.phase;
+    if (phase === 'break') {
+      soundToast.error('Сначала завершите перерыв');
+      return;
+    }
+    if (phase !== 'working') return;
+    dispatch({ type: 'BITRIX_SYNC', status: 'syncing' });
+    try {
+      const snapshot = await bitrixTimemanClose(phase, stateRef.current.config);
+      dispatch({ type: 'BITRIX_APPLY_STATUS', snapshot });
+      dispatch({ type: 'BITRIX_SYNC', status: 'online' });
+      soundToast.success('Рабочий день завершён');
+    } catch (error) {
+      handleBitrixFailure(error, 'Не удалось завершить рабочий день в Bitrix24');
+    }
+  }, [handleBitrixFailure]);
+
+  const startLunch = bitrixStartBreak;
+  const endLunch = bitrixResumeWork;
 
   const ensureKanbanLoaded = useCallback(async (force = false, notify = false) => {
     if (!window.api) return;
@@ -956,7 +1276,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AppContext.Provider value={{ state, dispatch, startTimer, requestStop, confirmStop, cancelStop, requestSwitch, confirmSwitch, startLunch, endLunch, ensureKanbanLoaded, ensureKanbanTaskDetail, ensureCalendarLoaded, ensureNotesLoaded, reloadHistory }}>
+    <AppContext.Provider value={{ state, dispatch, startTimer, requestStop, confirmStop, cancelStop, requestSwitch, confirmSwitch, bitrixStartDay, bitrixStartBreak, bitrixResumeWork, bitrixEndDay, startLunch, endLunch, ensureKanbanLoaded, ensureKanbanTaskDetail, ensureCalendarLoaded, ensureNotesLoaded, reloadHistory }}>
       {children}
     </AppContext.Provider>
   );

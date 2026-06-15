@@ -20,6 +20,14 @@ export const api = {
   getJiraCredentials: () => invoke("get_jira_credentials"),
   saveJiraCredentials: (creds: { pass: string }) =>
     invoke("save_jira_credentials", { pass: creds.pass }),
+  getBitrixWebhook: () => invoke("get_bitrix_webhook"),
+  saveBitrixWebhook: (webhook: string) =>
+    invoke("save_bitrix_webhook", { webhook }),
+  bitrixTimemanStatus: () => invoke("bitrix_timeman_status"),
+  bitrixTimemanOpen: () => invoke("bitrix_timeman_open"),
+  bitrixTimemanPause: () => invoke("bitrix_timeman_pause"),
+  bitrixTimemanClose: () => invoke("bitrix_timeman_close"),
+  bitrixTestConnection: () => invoke("bitrix_test_connection"),
   getJiraComponents: (projectKey: string) =>
     invoke("get_jira_components", { projectKey }),
   getJiraVersions: (projectKey: string) =>

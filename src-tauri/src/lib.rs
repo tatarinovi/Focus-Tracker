@@ -35,19 +35,9 @@ pub fn run() {
                             }
                         }
                         tauri::WindowEvent::CloseRequested { api, .. } => {
-                            let is_timer_active = app_handle
-                                .try_state::<TimerCloseGuardState>()
-                                .and_then(|state| {
-                                    state.is_timer_active.lock().ok().map(|guard| *guard)
-                                })
-                                .unwrap_or(false);
-
-                            if is_timer_active {
+                            if commands::window::is_close_guarded(&app_handle) {
                                 api.prevent_close();
-                                let _ = w.unminimize();
-                                let _ = w.show();
-                                let _ = w.set_focus();
-                                let _ = w.emit("active-timer-close-blocked", ());
+                                commands::window::notify_close_blocked(&app_handle);
                             }
                         }
                         _ => {}
@@ -88,7 +78,11 @@ pub fn run() {
                             }
                         }
                         "quit" => {
-                            app.exit(0);
+                            if commands::window::is_close_guarded(app) {
+                                commands::window::notify_close_blocked(app);
+                            } else {
+                                app.exit(0);
+                            }
                         }
                         _ => {}
                     }
@@ -133,6 +127,8 @@ pub fn run() {
             commands::credentials::get_calendar_credentials,
             commands::credentials::save_jira_credentials,
             commands::credentials::get_jira_credentials,
+            commands::credentials::save_bitrix_webhook,
+            commands::credentials::get_bitrix_webhook,
             // Kanban
             commands::kanban::kanban_login,
             commands::kanban::kanban_get_user_info,
@@ -151,6 +147,12 @@ pub fn run() {
             commands::jira::create_jira_issue,
             commands::jira::upload_jira_attachments,
             commands::jira::search_jira_users,
+            // Bitrix24
+            commands::bitrix::bitrix_timeman_status,
+            commands::bitrix::bitrix_timeman_open,
+            commands::bitrix::bitrix_timeman_pause,
+            commands::bitrix::bitrix_timeman_close,
+            commands::bitrix::bitrix_test_connection,
             // Calendar
             commands::calendar::fetch_calendar_caldav,
             commands::calendar::update_calendar_rsvp,

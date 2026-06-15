@@ -15,6 +15,13 @@ declare global {
     saveCalendarCredentials: (creds: { user: string; pass?: string }) => Promise<boolean>;
     getJiraCredentials: () => Promise<{ pass: string }>;
     saveJiraCredentials: (creds: { pass?: string }) => Promise<boolean>;
+    getBitrixWebhook: () => Promise<{ webhook: string }>;
+    saveBitrixWebhook: (webhook: string) => Promise<boolean>;
+    bitrixTimemanStatus: () => Promise<any>;
+    bitrixTimemanOpen: () => Promise<any>;
+    bitrixTimemanPause: () => Promise<any>;
+    bitrixTimemanClose: () => Promise<any>;
+    bitrixTestConnection: () => Promise<any>;
     getJiraComponents: (projectKey: string) => Promise<any>;
     getJiraVersions: (projectKey: string) => Promise<any>;
     getJiraFields: () => Promise<any>;

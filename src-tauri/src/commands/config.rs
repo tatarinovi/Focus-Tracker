@@ -41,6 +41,13 @@ pub fn save_config_to_disk(app: &AppHandle, config: &serde_json::Value) -> Resul
 #[tauri::command]
 pub async fn load_config_cmd(app: AppHandle) -> Result<serde_json::Value, String> {
     let mut config = load_config(&app);
+    let bitrix_url = config
+        .get("bitrix_url")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|url| !url.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| std::env::var("BITRIX24_URL").unwrap_or_default());
     if let Some(obj) = config.as_object_mut() {
         obj.insert(
             "jira_url".to_string(),
@@ -53,6 +60,10 @@ pub async fn load_config_cmd(app: AppHandle) -> Result<serde_json::Value, String
             serde_json::Value::String(
                 std::env::var("JIRA_DEFAULT_PROJECT").unwrap_or_else(|_| "RUSSPASS".to_string()),
             ),
+        );
+        obj.insert(
+            "bitrix_url".to_string(),
+            serde_json::Value::String(bitrix_url),
         );
     }
     Ok(config)
@@ -82,6 +93,11 @@ pub async fn save_config_cmd(app: AppHandle, config: serde_json::Value) -> Resul
     if let Some(pass) = current.get("jira_pass") {
         if let Some(obj) = merged.as_object_mut() {
             obj.insert("jira_pass".to_string(), pass.clone());
+        }
+    }
+    if let Some(webhook) = current.get("bitrix_webhook") {
+        if let Some(obj) = merged.as_object_mut() {
+            obj.insert("bitrix_webhook".to_string(), webhook.clone());
         }
     }
     save_config_to_disk(&app, &merged)?;

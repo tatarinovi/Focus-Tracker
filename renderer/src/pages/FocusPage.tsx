@@ -139,8 +139,8 @@ function FocusTaskRow({ task, onStart }: { task: Task; onStart: (task: Task) => 
 }
 
 export default function FocusPage() {
-  const { state, dispatch, startTimer, requestStop, startLunch, ensureKanbanLoaded, ensureKanbanTaskDetail, ensureCalendarLoaded } = useApp();
-  const { timer, tasks, history, lunch } = state;
+  const { state, dispatch, startTimer, requestStop, bitrixStartBreak, ensureKanbanLoaded, ensureKanbanTaskDetail, ensureCalendarLoaded } = useApp();
+  const { timer, tasks, history } = state;
   const [, navigate] = useLocation();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
@@ -243,10 +243,16 @@ export default function FocusPage() {
               </div>
 
               <div className="flex gap-2 justify-center">
-                {timer.status === 'idle' && (
+                {timer.status === 'idle' && timer.activeTask && (
                   <button
                     data-testid="button-start-timer"
-                    onClick={() => dispatch({ type: 'START_TIMER', task: timer.activeTask! })}
+                    onClick={() => {
+                      if (timer.elapsed > 0) {
+                        dispatch({ type: 'RESUME_TIMER' });
+                      } else {
+                        dispatch({ type: 'START_TIMER', task: timer.activeTask! });
+                      }
+                    }}
                     className="flex items-center gap-2 bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity"
                   >
                     <Play className="w-4 h-4" /> Старт
@@ -460,20 +466,36 @@ export default function FocusPage() {
           </div>
 
           {/* Lunch Mode */}
-          {!state.lunch.active && (
+          {state.bitrixTimeman.phase === 'working' && (
             <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
                 <Coffee className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-semibold">Обед</span>
+                <span className="text-sm font-semibold">Перерыв</span>
               </div>
-              <p className="text-xs text-muted-foreground mb-3">Таймер будет поставлен на паузу на время обеда</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                Таймер задачи будет поставлен на паузу.{' '}
+                {state.bitrixTimeman.breakUsedTodaySeconds > state.bitrixTimeman.breakLimitMinutes * 60
+                  ? `+${Math.ceil(Math.max(0, state.bitrixTimeman.breakUsedTodaySeconds - state.bitrixTimeman.breakLimitMinutes * 60) / 60)} мин сверх нормы.`
+                  : `До нормы перерыва (${state.bitrixTimeman.breakLimitMinutes} мин) осталось — ${formatMinutes(Math.ceil(Math.max(0, state.bitrixTimeman.breakLimitMinutes * 60 - state.bitrixTimeman.breakUsedTodaySeconds) / 60))}.`}
+              </p>
               <button
                 data-testid="button-focus-lunch"
-                onClick={startLunch}
+                onClick={bitrixStartBreak}
                 className="w-full flex items-center justify-center gap-2 bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded-lg py-2 text-sm font-medium hover:bg-orange-500/20 transition-colors"
               >
-                <Coffee className="w-4 h-4" /> Ушёл на обед
+                <Coffee className="w-4 h-4" /> Уйти на перерыв
               </button>
+            </div>
+          )}
+          {state.bitrixTimeman.phase === 'not_started' && (
+            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <Coffee className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-semibold">Bitrix24</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Начните рабочий день в виджете Bitrix24 в верхней панели, чтобы отмечать перерывы.
+              </p>
             </div>
           )}
         </div>

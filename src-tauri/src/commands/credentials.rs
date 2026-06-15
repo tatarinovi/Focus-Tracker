@@ -122,6 +122,36 @@ pub async fn get_jira_credentials(app: AppHandle) -> Result<serde_json::Value, S
     Ok(serde_json::json!({ "pass": pass }))
 }
 
+#[tauri::command]
+pub async fn save_bitrix_webhook(app: AppHandle, webhook: String) -> Result<bool, String> {
+    let mut config = load_config(&app);
+    if !webhook.is_empty() {
+        config["bitrix_webhook"] = serde_json::Value::String(encrypt_and_store(
+            &webhook,
+            "bitrix-webhook",
+        ));
+    } else {
+        config["bitrix_webhook"] = serde_json::Value::String(String::new());
+    }
+    save_config_to_disk(&app, &config)?;
+    Ok(true)
+}
+
+#[tauri::command]
+pub async fn get_bitrix_webhook(app: AppHandle) -> Result<serde_json::Value, String> {
+    let config = load_config(&app);
+    let webhook_raw = config
+        .get("bitrix_webhook")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let webhook = if webhook_raw.is_empty() {
+        String::new()
+    } else {
+        decrypt_stored_value(webhook_raw, "bitrix-webhook")
+    };
+    Ok(serde_json::json!({ "webhook": webhook }))
+}
+
 pub fn get_decrypted_password(config: &serde_json::Value, key: &str) -> String {
     config
         .get(key)
@@ -131,6 +161,7 @@ pub fn get_decrypted_password(config: &serde_json::Value, key: &str) -> String {
             let service = match key {
                 "caldav_pass" => "caldav-password",
                 "jira_pass" => "jira-password",
+                "bitrix_webhook" => "bitrix-webhook",
                 _ => key,
             };
             decrypt_stored_value(s, service)

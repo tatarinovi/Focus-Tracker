@@ -3,7 +3,7 @@ import { useApp } from "@/context/AppContext";
 import { Check, RefreshCw } from "lucide-react";
 import { soundToast as toast } from "@/lib/appAudio";
 
-type Tab = 'general' | 'kanban' | 'calendar' | 'jira' | 'resonance' | 'pomodoro' | 'audio';
+type Tab = 'general' | 'kanban' | 'calendar' | 'jira' | 'bitrix' | 'resonance' | 'pomodoro' | 'audio';
 
 const ACCENT_COLORS = [
   { value: '#6366f1', label: 'Индиго' },
@@ -25,8 +25,8 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
   );
 }
 
-function InputField({ label, value, onChange, type = 'text', placeholder }: {
-  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string;
+function InputField({ label, value, onChange, type = 'text', placeholder, disabled }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string; disabled?: boolean;
 }) {
   return (
     <div>
@@ -36,7 +36,8 @@ function InputField({ label, value, onChange, type = 'text', placeholder }: {
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        disabled={disabled}
+        className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
       />
     </div>
   );
@@ -84,10 +85,11 @@ export default function SettingsPage() {
     let cancelled = false;
     async function hydrateDeferredSettings() {
       const config = state.config || await window.api!.loadConfig().catch((): Record<string, any> => ({}));
-      const [calendarCreds, kanbanBaseUrl, jiraCreds] = await Promise.all([
+      const [calendarCreds, kanbanBaseUrl, jiraCreds, bitrixCreds] = await Promise.all([
         window.api!.getCalendarCredentials?.().catch(() => ({ user: '', pass: '' })),
         window.api!.getKanbanBaseUrl?.().catch(() => ''),
         window.api!.getJiraCredentials?.().catch(() => ({ pass: '' })),
+        window.api!.getBitrixWebhook?.().catch(() => ({ webhook: '' })),
       ]);
       if (cancelled) return;
       const kanbanUser = config.kanban?.userInfo?.data || config.kanban?.userInfo || {};
@@ -111,6 +113,13 @@ export default function SettingsPage() {
             login: config.jira_user || settings.jira.login,
             password: jiraCreds?.pass ? '********' : settings.jira.password,
             defaultProject: config.jira_project || settings.jira.defaultProject,
+          },
+          bitrix: {
+            ...settings.bitrix,
+            url: config.bitrix_url || settings.bitrix.url,
+            webhook: bitrixCreds?.webhook ? '********' : settings.bitrix.webhook,
+            connected: config.bitrix?.connected === true,
+            lastChecked: config.bitrix?.lastChecked || settings.bitrix.lastChecked,
           },
         },
       });
@@ -145,6 +154,11 @@ export default function SettingsPage() {
           connected: next.resonance.connected,
           lastChecked: next.resonance.lastChecked,
         },
+        bitrix: {
+          connected: next.bitrix.connected,
+          lastChecked: next.bitrix.lastChecked,
+        },
+        bitrix_url: next.bitrix.url,
       };
       await window.api.saveConfig(nextConfig);
       if (partial.alwaysOnTop !== undefined) {
@@ -157,6 +171,9 @@ export default function SettingsPage() {
       if (next.jira.password && next.jira.password !== '********') {
         await window.api.saveJiraCredentials({ pass: next.jira.password });
       }
+      if (next.bitrix.webhook && next.bitrix.webhook !== '********') {
+        await window.api.saveBitrixWebhook(next.bitrix.webhook);
+      }
     }
     toast.success('Настройки сохранены');
   };
@@ -166,6 +183,7 @@ export default function SettingsPage() {
     { key: 'kanban', label: 'Kanban' },
     { key: 'calendar', label: 'Календарь' },
     { key: 'jira', label: 'Jira' },
+    { key: 'bitrix', label: 'Bitrix24' },
     { key: 'resonance', label: 'Resonance' },
     { key: 'pomodoro', label: 'Pomodoro' },
     { key: 'audio', label: 'Аудио' },
@@ -196,6 +214,39 @@ export default function SettingsPage() {
     dispatch({
       type: 'UPDATE_SETTINGS',
       settings: { kanban: { ...settings.kanban, password: '' } },
+    });
+    return true;
+  };
+
+  const connectBitrix = async () => {
+    if (!window.api || !settings.bitrix.url) return false;
+    if (settings.bitrix.webhook && settings.bitrix.webhook !== '********') {
+      await window.api.saveBitrixWebhook(settings.bitrix.webhook);
+    }
+    const res = await window.api.bitrixTestConnection();
+    if (res?.success === false && res?.error_code !== 'EXPIRED') return false;
+    const checkedAt = new Date().toISOString();
+    const config = state.config || await window.api.loadConfig();
+    const nextConfig = {
+      ...config,
+      bitrix_url: settings.bitrix.url,
+      bitrix: {
+        connected: true,
+        lastChecked: checkedAt,
+      },
+    };
+    await window.api.saveConfig(nextConfig);
+    dispatch({ type: 'SET_CONFIG', config: nextConfig });
+    dispatch({
+      type: 'UPDATE_SETTINGS',
+      settings: {
+        bitrix: {
+          ...settings.bitrix,
+          webhook: settings.bitrix.webhook === '********' ? '********' : '',
+          connected: true,
+          lastChecked: checkedAt,
+        },
+      },
     });
     return true;
   };
@@ -328,6 +379,40 @@ export default function SettingsPage() {
               const res = await window.api.getJiraFields();
               return Boolean(res?.success);
             }} />
+          </div>
+        )}
+
+        {activeTab === 'bitrix' && (
+          <div className="max-w-lg space-y-4">
+            <h2 className="text-sm font-semibold">Подключение к Bitrix24</h2>
+            <InputField
+              label="URL портала"
+              value={settings.bitrix.url}
+              onChange={v => dispatch({ type: 'UPDATE_SETTINGS', settings: { bitrix: { ...settings.bitrix, url: v, connected: false } } })}
+              placeholder="https://company.bitrix24.ru"
+            />
+            <InputField
+              label="Webhook"
+              value={settings.bitrix.webhook}
+              onChange={v => dispatch({ type: 'UPDATE_SETTINGS', settings: { bitrix: { ...settings.bitrix, webhook: v, connected: false } } })}
+              type="password"
+              placeholder="1/xxxxxxxxxxxxxxxx"
+            />
+            <p className="text-xs text-muted-foreground -mt-2">
+              Входящий webhook с правами timeman: часть пути после /rest/ (например, 1/abc123).
+            </p>
+            <div className="rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground space-y-1">
+              <div className="flex items-center justify-between">
+                <span>Статус</span>
+                <span className={settings.bitrix.connected ? 'text-green-500 font-medium' : ''}>
+                  {settings.bitrix.connected ? 'Подключено' : 'Не подключено'}
+                </span>
+              </div>
+              {settings.bitrix.lastChecked && (
+                <div>Проверено: {new Date(settings.bitrix.lastChecked).toLocaleString('ru-RU')}</div>
+              )}
+            </div>
+            <ConnectButton onTest={connectBitrix} />
           </div>
         )}
 

@@ -3,12 +3,13 @@ import { memoryLocation } from "wouter/memory-location";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
-import { Target, LayoutGrid, Calendar, Clock, Timer, FileText, Settings, Info, Bell, Minimize2, Maximize2, Coffee, Circle, Menu, X, Minus, Square, Ticket, FilterX } from "lucide-react";
+import { Target, LayoutGrid, Calendar, Clock, Timer, FileText, Settings, Info, Bell, Minimize2, Maximize2, Circle, Menu, X, Minus, Square, Ticket, FilterX } from "lucide-react";
 import { AppProvider, useApp } from "@/context/AppContext";
 import { formatSeconds, formatMinutes } from "@/data/mockData";
 import { playAppSound } from "@/lib/appAudio";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
+import { BitrixTimemanWidget } from "@/components/BitrixTimemanWidget";
 
 const isTauri = typeof window !== 'undefined' && !!window.tauriRuntime?.isTauri;
 const drag = { WebkitAppRegion: 'drag' } as React.CSSProperties;
@@ -224,10 +225,9 @@ function NotificationPanel() {
 }
 
 function Topbar({ onMenuClick, isNarrow }: { onMenuClick: () => void; isNarrow: boolean }) {
-  const { state, dispatch, requestStop, startLunch, endLunch } = useApp();
-  const { timer, lunch } = state;
+  const { state, dispatch, requestStop } = useApp();
+  const { timer } = state;
   const currentElapsed = timer.elapsed;
-  const lunchElapsed = lunch.lunchElapsed;
 
   const today = new Date();
   const todayStr = `${today.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}`;
@@ -263,37 +263,12 @@ function Topbar({ onMenuClick, isNarrow }: { onMenuClick: () => void; isNarrow: 
             <button onClick={requestStop} className="text-[10px] text-muted-foreground hover:text-destructive">■</button>
           </div>
         )}
-        {lunch.active && (
-          <div className="flex items-center gap-2 bg-orange-500/10 border border-orange-500/30 rounded-md px-3 py-1">
-            <Coffee className="w-3 h-3 text-orange-400" />
-            <span className="text-xs text-orange-400 font-medium">На обеде</span>
-            <span className="font-mono text-xs text-orange-400">{formatSeconds(lunchElapsed)}</span>
-          </div>
-        )}
       </div>
 
       {/* Right: app controls + window controls */}
       <div className="flex items-stretch h-full">
         <div className="flex items-center gap-1 px-2" style={isTauri ? noDrag : undefined}>
-          {!lunch.active ? (
-            <button
-              data-testid="button-lunch"
-              onClick={startLunch}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary rounded-md transition-colors"
-            >
-              <Coffee className="w-3.5 h-3.5" />
-              Обед
-            </button>
-          ) : (
-            <button
-              data-testid="button-end-lunch"
-              onClick={endLunch}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-orange-400 hover:bg-orange-500/10 rounded-md transition-colors"
-            >
-              <Coffee className="w-3.5 h-3.5" />
-              Вернулся
-            </button>
-          )}
+          <BitrixTimemanWidget />
           <button
             data-testid="button-compact-toggle"
             onClick={() => dispatch({ type: 'TOGGLE_COMPACT' })}
@@ -334,7 +309,15 @@ function Sidebar({ isNarrow, isOpen, onClose }: { isNarrow: boolean; isOpen: boo
   const todayHistory = state.history.filter(h => h.date === todayKey);
   const totalMinutes = todayHistory.reduce((sum, h) => sum + h.duration, 0);
 
+  const bitrixPhase = state.bitrixTimeman.phase;
+  const bitrixStatus = state.bitrixTimeman.syncStatus === 'syncing'
+    ? 'loading'
+    : bitrixPhase === 'working' || bitrixPhase === 'break'
+      ? 'connected'
+      : 'disconnected';
+
   const integrations = [
+    { label: 'Bitrix24', status: bitrixStatus, loading: state.bitrixTimeman.syncStatus === 'syncing' },
     { label: 'Kanban', status: state.config?.kanban?.token ? 'connected' : 'disconnected', loading: state.loading.kanban },
     { label: 'Календарь', status: state.settings.calendar.url ? 'connected' : 'disconnected', loading: state.loading.calendar },
     { label: 'Jira', status: state.settings.jira.url && state.settings.jira.login ? 'connected' : 'disconnected', loading: state.loading.jira },
@@ -589,11 +572,11 @@ function LunchRestoreDialog() {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" />
       <div className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm p-6">
-        <h2 className="text-base font-semibold mb-2">Вернулся с обеда</h2>
-        {state.lunch.previousTask ? (
+        <h2 className="text-base font-semibold mb-2">Вернулся с перерыва</h2>
+        {state.bitrixTimeman.previousTask ? (
           <>
             <p className="text-sm text-muted-foreground mb-4">
-              Продолжить работу над задачей <span className="text-foreground font-medium">"{state.lunch.previousTask.title}"</span>?
+              Продолжить работу над задачей <span className="text-foreground font-medium">"{state.bitrixTimeman.previousTask.title}"</span>?
             </p>
             <div className="flex gap-2">
               <button
@@ -643,13 +626,22 @@ function AppLayout() {
   const openSidebar = useCallback(() => setSidebarOpen(true), []);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
+  const workDayOpen = state.bitrixTimeman.phase === 'working' || state.bitrixTimeman.phase === 'break';
+  const timerActive = state.timer.status !== 'idle';
+
+  const closeBlockedMessage = workDayOpen && timerActive
+    ? 'Сначала завершите рабочий день в Bitrix24 и остановите активный таймер.'
+    : workDayOpen
+      ? 'Сначала завершите рабочий день в виджете Bitrix24.'
+      : 'Сначала остановите активный таймер, чтобы время корректно записалось в историю.';
+
   const closeBlockedDialog = closeBlockedOpen ? (
     <div className="fixed inset-0 z-[60] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={() => setCloseBlockedOpen(false)} />
       <div className="relative bg-card border border-destructive/40 rounded-xl shadow-2xl w-full max-w-sm p-6">
         <h2 className="text-base font-semibold mb-2 text-destructive">Нельзя закрыть приложение</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Сначала остановите активный таймер, чтобы время корректно записалось в историю.
+          {closeBlockedMessage}
         </p>
         <button
           data-testid="button-close-blocked-ok"

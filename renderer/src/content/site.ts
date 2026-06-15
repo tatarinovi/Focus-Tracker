@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.2.5";
+export const CURRENT_VERSION = "1.3.0";
 
 export const GITHUB_URL = "https://github.com/tatarinovi/Focus-Tracker";
 export const RELEASES_URL = "https://github.com/tatarinovi/Focus-Tracker/releases";
@@ -69,6 +69,18 @@ export const TECH_STACK = [
 ];
 
 export const CHANGELOG = [
+  {
+    version: "1.3.0",
+    date: "2026-06-15",
+    changes: [
+      "Bitrix24: виджет рабочего дня — начало, перерыв, продолжение и завершение через timeman API",
+      "При запуске синхронизируется статус timeman.status; незакрытый вчерашний день (EXPIRED) — ошибка со ссылкой на портал",
+      "Норма перерыва 1 ч только в приложении; превышение показывается как «+N мин сверх нормы»",
+      "Блокировка закрытия приложения, пока рабочий день не завершён",
+      "Настройки: вкладка Bitrix24 (URL портала, входящий webhook)",
+      "Экран завершённого дня: время окончания, отработано и перерыв за день",
+    ],
+  },
   {
     version: "1.2.5",
     date: "2026-06-15",

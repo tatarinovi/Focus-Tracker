@@ -1,5 +1,5 @@
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 pub struct TimerCloseGuardState {
     pub is_timer_active: Mutex<bool>,
@@ -10,6 +10,21 @@ impl Default for TimerCloseGuardState {
         Self {
             is_timer_active: Mutex::new(false),
         }
+    }
+}
+
+pub fn is_close_guarded(app: &AppHandle) -> bool {
+    app.try_state::<TimerCloseGuardState>()
+        .and_then(|state| state.is_timer_active.lock().ok().map(|guard| *guard))
+        .unwrap_or(false)
+}
+
+pub fn notify_close_blocked(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+        let _ = window.emit("active-timer-close-blocked", ());
     }
 }
 

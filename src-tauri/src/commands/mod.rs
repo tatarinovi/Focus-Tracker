@@ -1,3 +1,4 @@
+pub mod bitrix;
 pub mod calendar;
 pub mod config;
 pub mod credentials;
