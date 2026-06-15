@@ -91,10 +91,12 @@ function EventCard({ event }: { event: CalendarEvent }) {
           )}
 
           <div className="flex items-center flex-wrap gap-3 mt-2">
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Users className="w-3 h-3" />
-              <span>{event.attendees.slice(0, 2).join(', ')}{event.attendees.length > 2 ? ` +${event.attendees.length-2}` : ''}</span>
-            </div>
+            {event.attendees.length > 0 && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Users className="w-3 h-3" />
+                <span>{event.attendees.slice(0, 2).join(', ')}{event.attendees.length > 2 ? ` +${event.attendees.length-2}` : ''}</span>
+              </div>
+            )}
             {event.meetingProvider && (
               <div className="text-[11px] text-muted-foreground">{PROVIDER_LABELS[event.meetingProvider]}</div>
             )}

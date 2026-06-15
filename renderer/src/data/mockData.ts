@@ -129,7 +129,7 @@ export function detectMeetingProvider(url: string | null): string | null {
   if (/meet\.google\.com/i.test(url)) return 'google_meet';
   if (/zoom\.us/i.test(url)) return 'zoom';
   if (/teams\.microsoft\.com/i.test(url)) return 'teams';
-  if (/telemost\.yandex/i.test(url)) return 'telemost';
+  if (/telemost(?:\.[a-z0-9-]+)*\.yandex/i.test(url)) return 'telemost';
   return null;
 }
 
@@ -201,6 +201,60 @@ export function sortKanbanStatuses(statuses: string[]) {
 export function isKanbanDoneStatus(status: string) {
   const value = status.trim().toLowerCase();
   return value.includes("реш") || value.includes("релиз") || value.includes("done") || value.includes("вып");
+}
+
+export function parseTaskDeadlineDate(deadline: string): Date | null {
+  if (!deadline) return null;
+  const trimmed = deadline.trim();
+  const ruMatch = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (ruMatch) {
+    const date = new Date(Number(ruMatch[3]), Number(ruMatch[2]) - 1, Number(ruMatch[1]));
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (isoMatch) {
+    const date = new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]));
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return null;
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+}
+
+export function isKanbanResolvedStatus(task: Pick<Task, "status" | "stageId">) {
+  if (task.stageId === KANBAN_STAGE_IDS.RESOLVED) return true;
+  return task.status.trim().toLowerCase() === "решена";
+}
+
+export function isKanbanNewStatus(task: Pick<Task, "status" | "stageId">) {
+  if (task.stageId === 1) return true;
+  return task.status.trim().toLowerCase() === "новые";
+}
+
+/** Сортировка списка Kanban: дедлайн → новые → остальные → решённые. */
+export function sortKanbanListTasks(tasks: Task[]) {
+  const listRank = (task: Task) => {
+    if (isKanbanResolvedStatus(task)) return 3;
+    if (parseTaskDeadlineDate(task.deadline)) return 0;
+    if (isKanbanNewStatus(task)) return 1;
+    return 2;
+  };
+
+  return [...tasks].sort((a, b) => {
+    const rankDiff = listRank(a) - listRank(b);
+    if (rankDiff !== 0) return rankDiff;
+
+    if (listRank(a) === 0) {
+      const deadlineDiff =
+        parseTaskDeadlineDate(a.deadline)!.getTime() - parseTaskDeadlineDate(b.deadline)!.getTime();
+      if (deadlineDiff !== 0) return deadlineDiff;
+    }
+
+    return a.title.localeCompare(b.title, "ru");
+  });
 }
 
 export function isKanbanPreWorkStage(task: Pick<Task, "status" | "stageId">) {

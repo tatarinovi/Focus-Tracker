@@ -608,6 +608,40 @@ export function normalizeNote(note: any, index: number): Note {
   };
 }
 
+function isMeetingUrl(url: string | null | undefined) {
+  return Boolean(url && detectMeetingProvider(url));
+}
+
+function normalizeExtractedUrl(url: string) {
+  return url.replace(/[),.;!?]+$/g, "");
+}
+
+function extractMeetingUrlsFromText(text: string) {
+  return (text.match(/https?:\/\/[^\s<>"']+/gi) || []).map(normalizeExtractedUrl);
+}
+
+function resolveMeetingUrl(event: any, description: string, location: string) {
+  const candidates = [
+    event.meetingUrl,
+    ...extractMeetingUrlsFromText(`${description} ${location}`),
+    event.url,
+  ].filter(Boolean) as string[];
+
+  return candidates.find(isMeetingUrl) ?? null;
+}
+
+function calendarAttendeeLabel(attendee: any): string {
+  if (!attendee) return "";
+  if (typeof attendee === "string") return attendee.trim();
+  const label = attendee?.params?.CN || attendee?.name || attendee?.email || "";
+  return String(label).trim();
+}
+
+function calendarAttendeesFromEvent(event: any): string[] {
+  if (!Array.isArray(event.attendees)) return [];
+  return event.attendees.map(calendarAttendeeLabel).filter(Boolean);
+}
+
 export function normalizeCalendarEvent(event: any, index: number): (CalendarEvent & { icsUrl?: string }) | null {
   if (String(event.status || "").toUpperCase() === "CANCELLED") return null;
 
@@ -620,27 +654,20 @@ export function normalizeCalendarEvent(event: any, index: number): (CalendarEven
   const title = decodeCalendarText(event.summary || event.title);
   const description = decodeCalendarText(event.description);
   const location = decodeCalendarText(event.location);
-  const url = event.url || event.meetingUrl || extractMeetingUrl(`${description} ${location}`);
+  const meetingUrl = resolveMeetingUrl(event, description, location);
   return {
     id: index + 1,
     title: title || event.title || "Без названия",
     start: timeFromIso(startDate.toISOString()),
     end: timeFromIso(safeEndDate.toISOString()),
     date: toDateKey(startDate),
-    meetingUrl: url,
-    meetingProvider: detectMeetingProvider(url),
-    attendees: Array.isArray(event.attendees)
-      ? event.attendees.map((attendee: any) => attendee?.params?.CN || attendee?.name || attendee?.email || String(attendee))
-      : [],
+    meetingUrl,
+    meetingProvider: detectMeetingProvider(meetingUrl),
+    attendees: calendarAttendeesFromEvent(event),
     rsvpStatus: rsvpFromCalendar(event.partstat || event.rsvpStatus),
     description: description || location || "",
     icsUrl: event.icsUrl,
   } as CalendarEvent & { icsUrl?: string };
-}
-
-function extractMeetingUrl(text: string) {
-  const match = text.match(/https?:\/\/[^\s<>"']+/i);
-  return match ? match[0] : null;
 }
 
 export async function loadRealHistory() {

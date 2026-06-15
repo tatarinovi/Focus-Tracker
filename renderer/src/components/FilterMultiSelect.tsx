@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { cn } from "@/lib/utils";
 import { ChevronDown, Check, X } from "lucide-react";
 
 type Option = { value: string; label: string };
@@ -38,7 +39,7 @@ export function FilterMultiSelect({
   const labelFor = (val: string) => options.find(o => o.value === val)?.label ?? val;
 
   return (
-    <div ref={ref} className={`relative min-w-[9rem] ${className}`}>
+    <div ref={ref} className={cn("relative min-w-[9rem]", className)}>
       <button
         type="button"
         data-testid={testId}

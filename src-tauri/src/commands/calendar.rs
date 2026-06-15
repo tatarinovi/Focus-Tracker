@@ -138,11 +138,39 @@ fn decode_ics_text(value: &str) -> String {
     output
 }
 
+fn parse_ics_address_params(header: &str, value: &str) -> Value {
+    let email = value.trim_start_matches("mailto:").trim().to_string();
+    let mut cn = None::<String>;
+    let mut partstat = None::<String>;
+
+    for part in header.split(';').skip(1) {
+        if let Some((key, raw)) = part.split_once('=') {
+            match key.to_uppercase().as_str() {
+                "CN" => cn = Some(decode_ics_text(raw)),
+                "PARTSTAT" => partstat = Some(raw.to_string()),
+                _ => {}
+            }
+        }
+    }
+
+    let name = cn.unwrap_or_else(|| email.clone());
+    let mut obj = serde_json::Map::new();
+    obj.insert("name".to_string(), Value::String(name));
+    if !email.is_empty() {
+        obj.insert("email".to_string(), Value::String(email));
+    }
+    if let Some(status) = partstat {
+        obj.insert("partstat".to_string(), Value::String(status));
+    }
+    Value::Object(obj)
+}
+
 fn parse_ics_text(text: &str, ics_url: &str) -> Vec<Value> {
     let mut events = Vec::new();
     let mut in_event = false;
     let mut current_event: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
+    let mut current_attendees: Vec<String> = Vec::new();
 
     let mut unfolded_lines: Vec<String> = Vec::new();
     for line in text.lines() {
@@ -160,6 +188,7 @@ fn parse_ics_text(text: &str, ics_url: &str) -> Vec<Value> {
         if trimmed == "BEGIN:VEVENT" {
             in_event = true;
             current_event.clear();
+            current_attendees.clear();
         } else if trimmed == "END:VEVENT" {
             if in_event {
                 if current_event
@@ -235,22 +264,36 @@ fn parse_ics_text(text: &str, ics_url: &str) -> Vec<Value> {
                 if let Some(status) = current_event.get("STATUS") {
                     event.insert("status".to_string(), Value::String(status.clone()));
                 }
+                if !current_attendees.is_empty() {
+                    let attendees: Vec<Value> = current_attendees
+                        .iter()
+                        .filter_map(|line| {
+                            let (header, value) = line.split_once(':')?;
+                            Some(parse_ics_address_params(header, value))
+                        })
+                        .collect();
+                    if !attendees.is_empty() {
+                        event.insert("attendees".to_string(), Value::Array(attendees));
+                    }
+                }
                 event.insert("icsUrl".to_string(), Value::String(ics_url.to_string()));
                 events.push(Value::Object(event));
             }
             in_event = false;
         } else if in_event {
             if let Some((key, value)) = trimmed.split_once(':') {
-                let key = key.split(';').next().unwrap_or(key).to_string();
-                if key == "EXDATE" || key == "RDATE" {
-                    if let Some(existing) = current_event.get_mut(&key) {
+                let property = key.split(';').next().unwrap_or(key);
+                if property == "ATTENDEE" {
+                    current_attendees.push(trimmed.to_string());
+                } else if property == "EXDATE" || property == "RDATE" {
+                    if let Some(existing) = current_event.get_mut(property) {
                         existing.push(',');
                         existing.push_str(value);
                     } else {
-                        current_event.insert(key, value.to_string());
+                        current_event.insert(property.to_string(), value.to_string());
                     }
                 } else {
-                    current_event.insert(key, value.to_string());
+                    current_event.insert(property.to_string(), value.to_string());
                 }
             }
         }

@@ -6,6 +6,8 @@ import { Play, Pause, Square, CheckCircle, Pin, Coffee, Clock, Users, ExternalLi
 import { useLocation } from "wouter";
 import { soundToast as toast } from "@/lib/appAudio";
 import { Spinner } from "@/components/ui/spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { TaskDetailPanel } from "@/components/TaskDetailPanel";
 
 function PomodoroMini() {
   const { state, dispatch } = useApp();
@@ -136,9 +138,10 @@ function FocusTaskRow({ task, onStart }: { task: Task; onStart: (task: Task) => 
 }
 
 export default function FocusPage() {
-  const { state, dispatch, startTimer, requestStop, startLunch, ensureKanbanLoaded, ensureCalendarLoaded } = useApp();
+  const { state, dispatch, startTimer, requestStop, startLunch, ensureKanbanLoaded, ensureKanbanTaskDetail, ensureCalendarLoaded } = useApp();
   const { timer, tasks, history, lunch } = state;
   const [, navigate] = useLocation();
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -192,8 +195,14 @@ export default function FocusPage() {
   }, [tasks, timer.activeTask?.id]);
   const todayEvents = state.calendarEvents.filter(e => e.date === today).slice(0, 3);
 
+  const openTask = (task: Task) => {
+    setSelectedTask(task);
+    void ensureKanbanTaskDetail(task.id);
+  };
+
   return (
-    <div className="p-6 max-w-full">
+    <div className="flex h-full">
+      <div className="flex-1 overflow-auto p-6 max-w-full">
       <div className="grid grid-cols-3 gap-6">
         {/* Left: Timer + Pinned */}
         <div className="col-span-2 space-y-4">
@@ -335,22 +344,32 @@ export default function FocusPage() {
               </div>
               <div className="space-y-2">
                 {focusTasks.map(task => (
-                  <div key={task.id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-secondary/50 transition-colors group">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: PROJECT_COLORS[task.project] || '#6366f1' }} />
-                      <span className="text-sm truncate">{task.title}</span>
-                      <span className="text-[11px] text-muted-foreground hidden group-hover:inline">{task.project}</span>
+                  <div
+                    key={task.id}
+                    onClick={() => openTask(task)}
+                    className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg hover:bg-secondary/50 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div
+                            className="w-2 h-2 rounded-full flex-shrink-0 cursor-default"
+                            style={{ backgroundColor: PROJECT_COLORS[task.project] || '#6366f1' }}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent side="top">{task.project}</TooltipContent>
+                      </Tooltip>
+                      <span className="text-sm truncate min-w-0">{task.title}</span>
                       {task.isPinned && <Pin className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
                       {getDeadlineState(task.deadline) && (
-                        <span className={`text-[10px] rounded border px-1.5 py-0.5 flex-shrink-0 ${getDeadlineState(task.deadline)!.tone}`}>
+                        <span className={`text-[10px] rounded border px-1.5 py-0.5 flex-shrink-0 whitespace-nowrap ${getDeadlineState(task.deadline)!.tone}`}>
                           {getDeadlineState(task.deadline)!.label} · {task.deadline}
                         </span>
                       )}
                     </div>
                     <button
                       data-testid={`button-start-task-${task.id}`}
-                      onClick={() => startTimer(task)}
+                      onClick={(e) => { e.stopPropagation(); startTimer(task); }}
                       className="flex items-center gap-1 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground rounded-md px-2.5 py-1 text-xs font-medium transition-colors flex-shrink-0 ml-2"
                     >
                       <Play className="w-3 h-3" /> Запустить
@@ -403,8 +422,12 @@ export default function FocusPage() {
                       <p className="text-xs font-medium leading-tight truncate">{event.title}</p>
                       <p className="text-[11px] text-muted-foreground mt-0.5">{event.start} — {event.end}</p>
                       <div className="flex items-center gap-1 mt-0.5">
-                        <Users className="w-2.5 h-2.5 text-muted-foreground" />
-                        <span className="text-[11px] text-muted-foreground">{event.attendees.length} участника</span>
+                        {event.attendees.length > 0 && (
+                          <>
+                            <Users className="w-2.5 h-2.5 text-muted-foreground" />
+                            <span className="text-[11px] text-muted-foreground">{event.attendees.length} участника</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -443,6 +466,14 @@ export default function FocusPage() {
           )}
         </div>
       </div>
+      </div>
+
+      {selectedTask && (
+        <TaskDetailPanel
+          task={tasks.find(t => t.id === selectedTask.id) || selectedTask}
+          onClose={() => setSelectedTask(null)}
+        />
+      )}
     </div>
   );
 }
