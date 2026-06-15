@@ -7,7 +7,7 @@ import { Target, LayoutGrid, Calendar, Clock, Timer, FileText, Settings, Info, B
 import { AppProvider, useApp } from "@/context/AppContext";
 import { formatSeconds, formatMinutes } from "@/data/mockData";
 import { playAppSound } from "@/lib/appAudio";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import { BitrixTimemanWidget } from "@/components/BitrixTimemanWidget";
 
@@ -109,6 +109,18 @@ function NotificationPanel() {
   const { state, dispatch } = useApp();
   const [filterTypes, setFilterTypes] = useState<string[]>([]);
   const unread = state.notifications.filter(n => !n.isRead).length;
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!state.notifOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        dispatch({ type: 'TOGGLE_NOTIF' });
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [state.notifOpen, dispatch]);
 
   const notifIcons: Record<string, string> = {
     pomodoro_done: '⏰', meeting_soon: '📅', timer_long: '⚠️',
@@ -141,7 +153,7 @@ function NotificationPanel() {
   }, [state.notifications, filterTypes]);
 
   return (
-    <div className="relative">
+    <div className="relative" ref={panelRef}>
       <button
         data-testid="button-notifications"
         onClick={() => dispatch({ type: 'TOGGLE_NOTIF' })}
