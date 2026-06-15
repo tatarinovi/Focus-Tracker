@@ -194,11 +194,24 @@ function decodeCalendarText(value: any) {
 }
 
 function rsvpFromCalendar(value: any): CalendarEvent["rsvpStatus"] {
-  const raw = String(value || "").toLowerCase();
-  if (raw === "accepted") return "accepted";
-  if (raw === "tentative") return "tentative";
-  if (raw === "declined") return "declined";
+  const raw = String(value || "").trim().toUpperCase();
+  if (raw === "ACCEPTED") return "accepted";
+  if (raw === "TENTATIVE") return "tentative";
+  if (raw === "DECLINED") return "declined";
+  if (raw === "NEEDS-ACTION") return "not_responded";
   return "not_responded";
+}
+
+function rsvpFromAttendees(attendees: unknown, userEmail: string): CalendarEvent["rsvpStatus"] {
+  if (!userEmail || !Array.isArray(attendees)) return "not_responded";
+  const normalizedUser = userEmail.trim().toLowerCase();
+  const self = attendees.find((attendee: any) => {
+    const email = String(attendee?.email || "").trim().toLowerCase();
+    if (!email) return false;
+    return email === normalizedUser || email.includes(normalizedUser) || normalizedUser.includes(email);
+  });
+  if (!self?.partstat) return "not_responded";
+  return rsvpFromCalendar(self.partstat);
 }
 
 function firstValue(...values: any[]) {
@@ -642,7 +655,11 @@ function calendarAttendeesFromEvent(event: any): string[] {
   return event.attendees.map(calendarAttendeeLabel).filter(Boolean);
 }
 
-export function normalizeCalendarEvent(event: any, index: number): (CalendarEvent & { icsUrl?: string }) | null {
+export function normalizeCalendarEvent(
+  event: any,
+  index: number,
+  options: { userEmail?: string } = {},
+): (CalendarEvent & { icsUrl?: string }) | null {
   if (String(event.status || "").toUpperCase() === "CANCELLED") return null;
 
   const rawStart = event.start || event.dtstart || event.dtStart;
@@ -664,7 +681,9 @@ export function normalizeCalendarEvent(event: any, index: number): (CalendarEven
     meetingUrl,
     meetingProvider: detectMeetingProvider(meetingUrl),
     attendees: calendarAttendeesFromEvent(event),
-    rsvpStatus: rsvpFromCalendar(event.partstat || event.rsvpStatus),
+    rsvpStatus: event.partstat || event.rsvpStatus
+      ? rsvpFromCalendar(event.partstat || event.rsvpStatus)
+      : rsvpFromAttendees(event.attendees, options.userEmail || ""),
     description: description || location || "",
     icsUrl: event.icsUrl,
   } as CalendarEvent & { icsUrl?: string };
@@ -796,7 +815,8 @@ export async function loadRealCalendarEvents(config: any) {
   const expanded = expandRawCalendarEvents(
     source.filter((item: any) => item?.type === "VEVENT" || item?.summary || item?.title),
   );
+  const userEmail = config?.caldav_user || config?.calendar?.login || "";
   return expanded
-    .map(normalizeCalendarEvent)
+    .map((event, index) => normalizeCalendarEvent(event, index, { userEmail }))
     .filter((event): event is CalendarEvent & { icsUrl?: string } => Boolean(event));
 }

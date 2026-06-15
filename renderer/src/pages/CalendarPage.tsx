@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarEvent } from "@/data/mockData";
+import { CalendarEvent, upcomingTodayCalendarEvents } from "@/data/mockData";
+import { useMinuteClock } from "@/hooks/useMinuteClock";
 import { useApp } from "@/context/AppContext";
 import { Users, Video, ExternalLink, Clock, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { soundToast as toast } from "@/lib/appAudio";
@@ -7,11 +8,11 @@ import { soundToast as toast } from "@/lib/appAudio";
 type Period = 'today' | 'tomorrow' | '3days' | 'week' | 'month';
 
 const PROVIDER_LABELS: Record<string, string> = {
-  google_meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', telemost: 'Яндекс Телемост',
+  google_meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', telemost: 'Яндекс Телемост', peregovorka: 'Переговорка',
 };
 
 const PROVIDER_COLORS: Record<string, string> = {
-  google_meet: '#1a73e8', zoom: '#2D8CFF', teams: '#7B83EB', telemost: '#FF5722',
+  google_meet: '#1a73e8', zoom: '#2D8CFF', teams: '#7B83EB', telemost: '#FF5722', peregovorka: '#C41E3A',
 };
 
 const RU_MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
@@ -30,7 +31,7 @@ function formatDateLabel(date: string, today: string) {
 
 function ProviderBadge({ provider }: { provider: string | null }) {
   if (!provider) return <Video className="w-4 h-4 text-muted-foreground" />;
-  const initials: Record<string, string> = { google_meet: 'G', zoom: 'Z', teams: 'T', telemost: 'Y' };
+  const initials: Record<string, string> = { google_meet: 'G', zoom: 'Z', teams: 'T', telemost: 'Y', peregovorka: 'П' };
   return (
     <div className="w-6 h-6 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
       style={{ backgroundColor: PROVIDER_COLORS[provider] || '#6b7280' }}>
@@ -59,6 +60,10 @@ function RsvpButton({ status, label, current, onClick }: { status: string; label
 
 function EventCard({ event }: { event: CalendarEvent }) {
   const [rsvp, setRsvp] = useState(event.rsvpStatus);
+
+  useEffect(() => {
+    setRsvp(event.rsvpStatus);
+  }, [event.rsvpStatus, event.id]);
 
   const updateRsvp = async (status: 'accepted' | 'tentative' | 'declined') => {
     const previous = rsvp;
@@ -240,7 +245,11 @@ export default function CalendarPage() {
     ensureCalendarLoaded();
   }, [ensureCalendarLoaded]);
 
-  const upcoming = state.calendarEvents.filter(e => e.date === today).slice(0, 3);
+  const now = useMinuteClock();
+  const upcoming = useMemo(
+    () => upcomingTodayCalendarEvents(state.calendarEvents, now),
+    [state.calendarEvents, now],
+  );
 
   const dates = period !== 'month' ? periodDates[period] : [];
   const eventsByDate = dates.map(date => ({

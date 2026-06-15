@@ -3,11 +3,12 @@ import { memoryLocation } from "wouter/memory-location";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
-import { Target, LayoutGrid, Calendar, Clock, Timer, FileText, Settings, Info, Bell, Minimize2, Maximize2, Coffee, Circle, Menu, X, Minus, Square, Ticket } from "lucide-react";
+import { Target, LayoutGrid, Calendar, Clock, Timer, FileText, Settings, Info, Bell, Minimize2, Maximize2, Coffee, Circle, Menu, X, Minus, Square, Ticket, FilterX } from "lucide-react";
 import { AppProvider, useApp } from "@/context/AppContext";
 import { formatSeconds, formatMinutes } from "@/data/mockData";
 import { playAppSound } from "@/lib/appAudio";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 
 const isTauri = typeof window !== 'undefined' && !!window.tauriRuntime?.isTauri;
 const drag = { WebkitAppRegion: 'drag' } as React.CSSProperties;
@@ -105,6 +106,7 @@ function useIsNarrow(breakpoint = 1024) {
 
 function NotificationPanel() {
   const { state, dispatch } = useApp();
+  const [filterTypes, setFilterTypes] = useState<string[]>([]);
   const unread = state.notifications.filter(n => !n.isRead).length;
 
   const notifIcons: Record<string, string> = {
@@ -112,6 +114,30 @@ function NotificationPanel() {
     task_done: '✓', time_recorded: '⏱', integration_error: '✗',
     break_time: '☕', update_available: '↑', kanban_new_task: '📋',
   };
+
+  const notifTypeLabels: Record<string, string> = {
+    pomodoro_done: 'Pomodoro',
+    meeting_soon: 'Созвоны',
+    timer_long: 'Долгий таймер',
+    task_done: 'Завершение задач',
+    time_recorded: 'Запись времени',
+    integration_error: 'Ошибки',
+    break_time: 'Перерывы',
+    update_available: 'Обновления',
+    kanban_new_task: 'Kanban',
+  };
+
+  const typeOptions = useMemo(() => {
+    const present = new Set(state.notifications.map(n => n.type));
+    return [...present]
+      .sort((a, b) => (notifTypeLabels[a] || a).localeCompare(notifTypeLabels[b] || b, 'ru'))
+      .map(type => ({ value: type, label: notifTypeLabels[type] || type }));
+  }, [state.notifications]);
+
+  const filteredNotifications = useMemo(() => {
+    if (filterTypes.length === 0) return state.notifications;
+    return state.notifications.filter(n => filterTypes.includes(n.type));
+  }, [state.notifications, filterTypes]);
 
   return (
     <div className="relative">
@@ -129,19 +155,46 @@ function NotificationPanel() {
       </button>
       {state.notifOpen && (
         <div className="absolute right-0 top-10 w-80 bg-popover border border-popover-border rounded-lg shadow-xl z-50 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <span className="text-sm font-semibold">Уведомления</span>
-            <button
-              onClick={() => dispatch({ type: 'MARK_ALL_READ' })}
-              className="text-xs text-primary hover:underline"
-            >
-              Прочитать все
-            </button>
+          <div className="px-4 py-3 border-b border-border space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold">Уведомления</span>
+              <button
+                onClick={() => dispatch({ type: 'MARK_ALL_READ' })}
+                className="text-xs text-primary hover:underline flex-shrink-0"
+              >
+                Прочитать все
+              </button>
+            </div>
+            {typeOptions.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <FilterMultiSelect
+                  data-testid="filter-notif-types"
+                  values={filterTypes}
+                  onChange={setFilterTypes}
+                  placeholder="Все типы"
+                  options={typeOptions}
+                  className="min-w-0 flex-1"
+                />
+                {filterTypes.length > 0 && (
+                  <button
+                    type="button"
+                    data-testid="button-notif-reset-filter"
+                    onClick={() => setFilterTypes([])}
+                    className="flex-shrink-0 rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                    title="Сбросить фильтр"
+                  >
+                    <FilterX className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           <div className="max-h-80 overflow-y-auto scrollbar-thin">
-            {state.notifications.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">Нет уведомлений</div>
-            ) : state.notifications.map(n => (
+            {filteredNotifications.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                {state.notifications.length === 0 ? 'Нет уведомлений' : 'Нет уведомлений по выбранным типам'}
+              </div>
+            ) : filteredNotifications.map(n => (
               <button
                 key={n.id}
                 data-testid={`notif-item-${n.id}`}
@@ -263,7 +316,6 @@ function Topbar({ onMenuClick, isNarrow }: { onMenuClick: () => void; isNarrow: 
 function Sidebar({ isNarrow, isOpen, onClose }: { isNarrow: boolean; isOpen: boolean; onClose: () => void }) {
   const [location] = useLocation();
   const { state } = useApp();
-  const { timer } = state;
   const logoSrc = state.settings.theme === 'light' ? appLogoLightSrc : appLogoSrc;
 
   const navItems = [
@@ -340,15 +392,6 @@ function Sidebar({ isNarrow, isOpen, onClose }: { isNarrow: boolean; isOpen: boo
             <span className="text-xs text-muted-foreground">Сегодня</span>
             <span className="text-xs font-medium text-sidebar-foreground">{formatMinutes(totalMinutes)}</span>
           </div>
-          {timer.status !== 'idle' && (
-            <div className="flex items-center gap-1.5">
-              <div className={`w-1.5 h-1.5 rounded-full ${timer.status === 'running' ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`} />
-              <span className="text-xs text-muted-foreground truncate">
-                {timer.status === 'running' ? 'Таймер идёт' : 'На паузе'}
-              </span>
-              <span className="text-xs font-mono text-sidebar-foreground">{formatSeconds(timer.elapsed)}</span>
-            </div>
-          )}
         </div>
 
         <div className="px-2 space-y-1.5">

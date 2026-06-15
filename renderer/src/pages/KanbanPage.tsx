@@ -272,12 +272,12 @@ export default function KanbanPage() {
           {view === 'list' ? (
             <table className="w-full table-fixed text-sm">
               <colgroup>
-                <col className="w-[34%]" />
-                <col className="w-[12%]" />
-                <col className="w-[13%]" />
+                <col className="w-[41%]" />
                 <col className="w-[12%]" />
                 <col className="w-[11%]" />
-                <col className="w-[14%]" />
+                <col className="w-[10%]" />
+                <col className="w-[10%]" />
+                <col className="w-[12%]" />
                 <col className="w-[4%]" />
               </colgroup>
               <thead>

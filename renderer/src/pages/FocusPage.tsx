@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { formatSeconds, formatMinutes, PROJECT_COLORS, Task, isKanbanDoneStatus, taskStatusLabel, taskPriorityLabel, priorityColorForTask, KANBAN_STAGE_IDS } from "@/data/mockData";
+import { formatSeconds, formatMinutes, PROJECT_COLORS, Task, isKanbanDoneStatus, taskStatusLabel, taskPriorityLabel, priorityColorForTask, KANBAN_STAGE_IDS, upcomingTodayCalendarEvents, calendarTodayKey, countCompletionsToday } from "@/data/mockData";
 import { resolveKanbanStageName } from "@/lib/tauriDataApi";
 import { Play, Pause, Square, CheckCircle, Pin, Coffee, Clock, Users, ExternalLink, Target, Video, CalendarClock, AlertTriangle } from "lucide-react";
 import { useLocation } from "wouter";
@@ -8,6 +8,7 @@ import { soundToast as toast } from "@/lib/appAudio";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TaskDetailPanel } from "@/components/TaskDetailPanel";
+import { useMinuteClock } from "@/hooks/useMinuteClock";
 
 function PomodoroMini() {
   const { state, dispatch } = useApp();
@@ -64,10 +65,10 @@ function PomodoroMini() {
 function MeetingProviderIcon({ provider }: { provider: string | null }) {
   if (!provider) return <Video className="w-4 h-4 text-muted-foreground" />;
   const icons: Record<string, string> = {
-    google_meet: 'G', zoom: 'Z', teams: 'T', telemost: 'Y',
+    google_meet: 'G', zoom: 'Z', teams: 'T', telemost: 'Y', peregovorka: 'П',
   };
   const colors: Record<string, string> = {
-    google_meet: '#1a73e8', zoom: '#2D8CFF', teams: '#7B83EB', telemost: '#FF5722',
+    google_meet: '#1a73e8', zoom: '#2D8CFF', teams: '#7B83EB', telemost: '#FF5722', peregovorka: '#C41E3A',
   };
   return (
     <div className="w-5 h-5 rounded flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
@@ -172,11 +173,11 @@ export default function FocusPage() {
     };
   }, [ensureKanbanLoaded, ensureCalendarLoaded]);
 
-  const today = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`;
+  const today = calendarTodayKey();
   const todayHistory = history.filter(h => h.date === today);
   const totalMinutesToday = todayHistory.reduce((s, h) => s + h.duration, 0);
-  const tasksWorkedOn = new Set(todayHistory.map(h => h.taskId)).size;
-  const tasksDone = tasks.filter(t => isKanbanDoneStatus(t.status)).length;
+  const tasksTrackedToday = new Set(todayHistory.map(h => h.taskId)).size;
+  const tasksCompletedToday = countCompletionsToday(state.taskCompletions, today);
 
   const focusTasks = useMemo(() => {
     const score = (task: Task) => {
@@ -193,7 +194,11 @@ export default function FocusPage() {
       .sort((a, b) => score(a) - score(b) || a.title.localeCompare(b.title))
       .slice(0, 8);
   }, [tasks, timer.activeTask?.id]);
-  const todayEvents = state.calendarEvents.filter(e => e.date === today).slice(0, 3);
+  const now = useMinuteClock();
+  const todayEvents = useMemo(
+    () => upcomingTodayCalendarEvents(state.calendarEvents, now),
+    [state.calendarEvents, now],
+  );
 
   const openTask = (task: Task) => {
     setSelectedTask(task);
@@ -336,12 +341,18 @@ export default function FocusPage() {
           )}
 
           {/* Focus Tasks */}
-          {focusTasks.length > 0 && (
+          {((state.loading.kanban && tasks.length === 0) || focusTasks.length > 0) && (
             <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <CalendarClock className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm font-semibold">В фокусе</span>
               </div>
+              {state.loading.kanban && tasks.length === 0 ? (
+                <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
+                  <Spinner className="w-3.5 h-3.5" />
+                  <span>Загружаю задачи...</span>
+                </div>
+              ) : (
               <div className="space-y-2">
                 {focusTasks.map(task => (
                   <div
@@ -377,6 +388,7 @@ export default function FocusPage() {
                   </div>
                 ))}
               </div>
+              )}
             </div>
           )}
 
@@ -387,12 +399,12 @@ export default function FocusPage() {
               <div className="text-xs text-muted-foreground mt-1">Время за сегодня</div>
             </div>
             <div className="bg-card border border-border rounded-xl p-4 text-center shadow-sm">
-              <div className="text-2xl font-bold text-foreground">{tasksWorkedOn}</div>
-              <div className="text-xs text-muted-foreground mt-1">Задач в работе</div>
+              <div className="text-2xl font-bold text-foreground">{tasksTrackedToday}</div>
+              <div className="text-xs text-muted-foreground mt-1">Стрекано задач</div>
             </div>
             <div className="bg-card border border-border rounded-xl p-4 text-center shadow-sm">
-              <div className="text-2xl font-bold text-green-500">{tasksDone}</div>
-              <div className="text-xs text-muted-foreground mt-1">Завершено</div>
+              <div className="text-2xl font-bold text-green-500">{tasksCompletedToday}</div>
+              <div className="text-xs text-muted-foreground mt-1">Завершено сегодня</div>
             </div>
           </div>
         </div>

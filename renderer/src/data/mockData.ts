@@ -80,6 +80,14 @@ export interface HistoryEntry {
   date: string;
 }
 
+export interface TaskCompletion {
+  id: number;
+  taskId: number;
+  taskTitle: string;
+  date: string;
+  time: string;
+}
+
 export interface CalendarEvent {
   id: number;
   title: string;
@@ -91,6 +99,30 @@ export interface CalendarEvent {
   attendees: string[];
   rsvpStatus: RsvpStatus;
   description: string;
+}
+
+export function calendarTodayKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function calendarEventStartMinutes(event: CalendarEvent) {
+  const [h, m] = event.start.split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  return h * 60 + m;
+}
+
+export function isFutureCalendarEventToday(event: CalendarEvent, now = new Date()) {
+  if (event.date !== calendarTodayKey(now)) return false;
+  const startMinutes = calendarEventStartMinutes(event);
+  if (startMinutes === null) return false;
+  return startMinutes > now.getHours() * 60 + now.getMinutes();
+}
+
+export function upcomingTodayCalendarEvents(events: CalendarEvent[], now = new Date(), limit = 3) {
+  return events
+    .filter((event) => isFutureCalendarEventToday(event, now))
+    .sort((a, b) => a.start.localeCompare(b.start))
+    .slice(0, limit);
 }
 
 export interface Note {
@@ -130,6 +162,7 @@ export function detectMeetingProvider(url: string | null): string | null {
   if (/zoom\.us/i.test(url)) return 'zoom';
   if (/teams\.microsoft\.com/i.test(url)) return 'teams';
   if (/telemost(?:\.[a-z0-9-]+)*\.yandex/i.test(url)) return 'telemost';
+  if (/peregovorka\.mos\.ru/i.test(url)) return 'peregovorka';
   return null;
 }
 
@@ -201,6 +234,25 @@ export function sortKanbanStatuses(statuses: string[]) {
 export function isKanbanDoneStatus(status: string) {
   const value = status.trim().toLowerCase();
   return value.includes("реш") || value.includes("релиз") || value.includes("done") || value.includes("вып");
+}
+
+export function createTaskCompletion(
+  task: Pick<Task, "id" | "title">,
+  existing: TaskCompletion[] = [],
+): TaskCompletion {
+  const now = new Date();
+  const maxId = existing.reduce((m, entry) => Math.max(m, entry.id), 0);
+  return {
+    id: maxId + 1,
+    taskId: task.id,
+    taskTitle: task.title,
+    date: calendarTodayKey(now),
+    time: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
+  };
+}
+
+export function countCompletionsToday(completions: TaskCompletion[], today = calendarTodayKey()) {
+  return completions.filter((entry) => entry.date === today).length;
 }
 
 export function parseTaskDeadlineDate(deadline: string): Date | null {

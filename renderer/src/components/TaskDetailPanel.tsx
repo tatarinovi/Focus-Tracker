@@ -15,7 +15,7 @@ import { soundToast as toast } from "@/lib/appAudio";
 function ProjectBadge({ project }: { project: string }) {
   return (
     <span
-      className="inline-flex max-w-28 items-center truncate whitespace-nowrap text-[10px] font-semibold px-1.5 py-0.5 rounded text-white flex-shrink-0"
+      className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded text-white flex-shrink-0"
       title={project}
       style={{ backgroundColor: PROJECT_COLORS[project] || "#6366f1" }}
     >

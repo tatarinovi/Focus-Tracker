@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer, useEffect, ReactNode, useCallback, useRef } from 'react';
-import { Task, HistoryEntry, Note, AppNotification, CalendarEvent, roundToQuarter } from '@/data/mockData';
+import { Task, HistoryEntry, Note, AppNotification, CalendarEvent, TaskCompletion, roundToQuarter, createTaskCompletion, isKanbanDoneStatus } from '@/data/mockData';
 import { hydrateKanbanTasksMissingDetails, loadRealCalendarEvents, loadRealHistory, loadRealKanbanTaskDetail, loadRealKanbanTasks, loadRealNotes, mergeKanbanTaskList, resolveKanbanStageName, savePinnedTaskIds } from '@/lib/tauriDataApi';
 import { KANBAN_STAGE_IDS, isKanbanPreWorkStage } from '@/data/mockData';
 import { toast } from 'sonner';
@@ -45,6 +45,7 @@ export interface Settings {
 interface AppState {
   tasks: Task[];
   history: HistoryEntry[];
+  taskCompletions: TaskCompletion[];
   notes: Note[];
   calendarEvents: CalendarEvent[];
   notifications: AppNotification[];
@@ -154,7 +155,8 @@ function saveState(state: AppState) {
       resonance: { ...state.settings.resonance, password: '' },
     };
     const toSave = {
-      tasks: [], history: state.history, notes: state.notes, calendarEvents: [],
+      tasks: [], history: state.history, taskCompletions: state.taskCompletions,
+      notes: state.notes, calendarEvents: [],
       notifications: state.notifications, settings: safeSettings,
       timer: state.timer, pomodoro: state.pomodoro, lunch: state.lunch,
     };
@@ -202,6 +204,7 @@ function restoreSettings(value: Partial<Settings> | undefined): Settings {
 const initialState: AppState = {
   tasks: [],
   history: saved.history ?? [],
+  taskCompletions: saved.taskCompletions ?? [],
   notes: saved.notes ?? [],
   calendarEvents: [],
   notifications: saved.notifications ?? [],
@@ -296,13 +299,18 @@ function reducer(state: AppState, action: Action): AppState {
         const notif: AppNotification = { id: Date.now(), type: 'time_recorded', text: `Время записано: ${Math.ceil(state.timer.elapsed/60)}м — ${state.timer.activeTask.title}`, timestamp: entry.endTime, isRead: false };
         newNotifs = [notif, ...state.notifications];
       }
+      let newCompletions = state.taskCompletions;
       if (action.action === 'complete' && state.timer.activeTask) {
-        newTasks = newTasks.map(t => t.id === state.timer.activeTask!.id ? {
+        const activeTask = state.timer.activeTask;
+        newTasks = newTasks.map(t => t.id === activeTask.id ? {
           ...t,
           status: resolveKanbanStageName(KANBAN_STAGE_IDS.RESOLVED, "Решена"),
           stageId: KANBAN_STAGE_IDS.RESOLVED,
         } : t);
-        const doneNotif: AppNotification = { id: Date.now() + 1, type: 'task_done', text: `Задача завершена: ${state.timer.activeTask.title}`, timestamp: new Date().toTimeString().slice(0,5), isRead: false };
+        if (!isKanbanDoneStatus(activeTask.status)) {
+          newCompletions = [createTaskCompletion(activeTask, newCompletions), ...newCompletions];
+        }
+        const doneNotif: AppNotification = { id: Date.now() + 1, type: 'task_done', text: `Задача завершена: ${activeTask.title}`, timestamp: new Date().toTimeString().slice(0,5), isRead: false };
         newNotifs = [doneNotif, ...newNotifs];
       }
       const newTask = state.pendingSwitchTask;
@@ -314,6 +322,7 @@ function reducer(state: AppState, action: Action): AppState {
         history: newHistory,
         notifications: newNotifs,
         tasks: newTasks,
+        taskCompletions: newCompletions,
       };
     }
     case 'START_LUNCH': {
@@ -346,11 +355,18 @@ function reducer(state: AppState, action: Action): AppState {
     case 'ADD_NOTIF':
       return { ...state, notifications: [{ ...action.notif, id: Date.now() }, ...state.notifications] };
     case 'UPDATE_TASK': {
+      const prev = state.tasks.find(t => t.id === action.task.id);
       const tasks = state.tasks.map(t => t.id === action.task.id ? action.task : t);
       const activeId = state.timer.activeTask?.id;
+      const becameDone = prev
+        && !isKanbanDoneStatus(prev.status)
+        && isKanbanDoneStatus(action.task.status);
       return {
         ...state,
         tasks,
+        taskCompletions: becameDone
+          ? [createTaskCompletion(action.task, state.taskCompletions), ...state.taskCompletions]
+          : state.taskCompletions,
         timer: activeId === action.task.id && state.timer.activeTask
           ? { ...state.timer, activeTask: { ...state.timer.activeTask, ...action.task } }
           : state.timer,

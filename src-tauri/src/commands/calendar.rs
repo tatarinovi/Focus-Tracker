@@ -347,6 +347,12 @@ pub async fn update_calendar_rsvp(
     let mut ics_text = resp.text().await.map_err(|e| e.to_string())?;
 
     // Replace PARTSTAT for user's ATTENDEE line
+    let status = match new_status.to_lowercase().as_str() {
+        "accepted" => "ACCEPTED".to_string(),
+        "tentative" => "TENTATIVE".to_string(),
+        "declined" => "DECLINED".to_string(),
+        _ => new_status.to_uppercase(),
+    };
     let email_escaped = regex::escape(&user);
     let attendee_regex = format!(r"(ATTENDEE;[^\n]*{}[^\n]*)", email_escaped);
     if let Ok(re) = regex::Regex::new(&attendee_regex) {
@@ -355,11 +361,11 @@ pub async fn update_calendar_rsvp(
             if attendee_line.to_uppercase().contains("PARTSTAT=") {
                 let partstat_re = regex::Regex::new(r"PARTSTAT=[A-Z-]+").unwrap();
                 attendee_line = partstat_re
-                    .replace(&attendee_line, format!("PARTSTAT={}", new_status))
+                    .replace(&attendee_line, format!("PARTSTAT={}", status))
                     .to_string();
             } else {
                 attendee_line = attendee_line
-                    .replace("ATTENDEE;", &format!("ATTENDEE;PARTSTAT={};", new_status));
+                    .replace("ATTENDEE;", &format!("ATTENDEE;PARTSTAT={};", status));
             }
             ics_text = ics_text.replace(mat.as_str(), &attendee_line);
         }
