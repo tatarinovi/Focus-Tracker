@@ -726,6 +726,7 @@ function App() {
             hook={isTauri ? tauriLocation.hook : undefined}
             searchHook={isTauri ? tauriLocation.searchHook : undefined}
           >
+            <PaletteIPC />
             <AppLayout />
           </WouterRouter>
           <Toaster richColors position="top-right" />
@@ -733,6 +734,66 @@ function App() {
       </TooltipProvider>
     </QueryClientProvider>
   );
+}
+
+function PaletteIPC() {
+  const { state, dispatch, startTimer, bitrixStartDay, bitrixStartBreak, bitrixResumeWork, bitrixEndDay } = useApp();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (!window.api) return;
+
+    const unlistenCommand = window.api.onPaletteCommand(async (command: any) => {
+      const { executePaletteCommand } = await import('@/lib/commandExecutor');
+      executePaletteCommand(command, {
+        dispatch,
+        navigate: (path: string) => navigate(path),
+      });
+    });
+
+    const onBitrixStartDay = () => bitrixStartDay();
+    const onBitrixStartBreak = () => bitrixStartBreak();
+    const onBitrixResumeWork = () => bitrixResumeWork();
+    const onBitrixEndDay = () => bitrixEndDay();
+
+    const onPaletteStartTask = (e: Event) => {
+      const taskId = (e as CustomEvent).detail?.taskId;
+      const task = state.tasks.find((t) => t.id === taskId);
+      if (task) {
+        window.api?.paletteShowMain();
+        startTimer(task);
+      }
+    };
+
+    window.addEventListener('bitrix-start-day', onBitrixStartDay);
+    window.addEventListener('bitrix-start-break', onBitrixStartBreak);
+    window.addEventListener('bitrix-resume-work', onBitrixResumeWork);
+    window.addEventListener('bitrix-end-day', onBitrixEndDay);
+    window.addEventListener('palette-start-task', onPaletteStartTask);
+
+    const unlistenShowRequest = window.api.onPaletteShowRequest(async () => {
+      const { buildMVPCommands } = await import('@/lib/commandRegistry');
+      const commands = buildMVPCommands({
+        timerStatus: state.timer.status,
+        hasActiveTask: !!state.timer.activeTask,
+        bitrixPhase: state.bitrixTimeman.phase,
+      });
+      const recentTasks = state.tasks.slice(0, 10);
+      await window.api?.paletteSendCommands({ commands, tasks: recentTasks } as any);
+    });
+
+    return () => {
+      unlistenCommand();
+      unlistenShowRequest();
+      window.removeEventListener('bitrix-start-day', onBitrixStartDay);
+      window.removeEventListener('bitrix-start-break', onBitrixStartBreak);
+      window.removeEventListener('bitrix-resume-work', onBitrixResumeWork);
+      window.removeEventListener('bitrix-end-day', onBitrixEndDay);
+      window.removeEventListener('palette-start-task', onPaletteStartTask);
+    };
+  }, [state.timer.status, state.timer.activeTask, state.bitrixTimeman.phase, state.tasks, dispatch, navigate, startTimer, bitrixStartDay, bitrixStartBreak, bitrixResumeWork, bitrixEndDay]);
+
+  return null;
 }
 
 export default App;

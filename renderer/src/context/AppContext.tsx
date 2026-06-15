@@ -118,6 +118,8 @@ export interface Settings {
   alwaysOnTop: boolean;
   compactMode: boolean;
   autostart: boolean;
+  startMinimized: boolean;
+  commandPalette: boolean;
   pomodoro: { focusDuration: number; breakDuration: number; sound: boolean; visualFlash: boolean };
   audio: { volume: number };
   kanban: { apiUrl: string; email: string; password: string };
@@ -204,6 +206,8 @@ const DEFAULT_SETTINGS: Settings = {
   alwaysOnTop: false,
   compactMode: false,
   autostart: false,
+  startMinimized: false,
+  commandPalette: true,
   pomodoro: { focusDuration: 25, breakDuration: 5, sound: true, visualFlash: true },
   audio: { volume: 80 },
   kanban: { apiUrl: '', email: '', password: '' },
@@ -741,6 +745,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             accentColor: config.accent_color || DEFAULT_SETTINGS.accentColor,
             alwaysOnTop: config.always_on_top === true,
             compactMode: windowState?.compactMode === true,
+            commandPalette: config.command_palette !== false,
             kanban: {
               apiUrl: config.kanban?.apiUrl || config.kanban?.url || '',
               email: config.kanban?.email || kanbanUser.email || kanbanUser.username || '',
@@ -773,6 +778,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             },
           },
         });
+        if (config.command_palette !== false) {
+          await window.api.paletteSetEnabled(true);
+        }
       } catch (error) {
         console.error('[Focus Tracker] bootstrap failed', error);
       } finally {

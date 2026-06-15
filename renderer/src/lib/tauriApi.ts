@@ -148,6 +148,26 @@ export const api = {
       unlisten.then((fn) => fn());
     };
   },
+  // Palette
+  paletteShow: () => invoke("palette_show"),
+  paletteHide: () => invoke("palette_hide"),
+  paletteToggle: () => invoke("palette_toggle"),
+  paletteSendCommands: (commands: any[]) => invoke("palette_send_commands", { commands }),
+  paletteRequestCommands: () => invoke("palette_request_commands"),
+  paletteShowMain: () => invoke("palette_show_main"),
+  paletteSetEnabled: (enabled: boolean) => invoke("palette_set_enabled", { enabled }),
+  onPaletteCommand: (cb: (command: any) => void) => {
+    const unlisten = listen<any>("palette-command", (e) => cb(e.payload));
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  },
+  onPaletteShowRequest: (cb: () => void) => {
+    const unlisten = listen("palette-commands-request", () => cb());
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  },
 };
 
 export const tauriRuntime = {

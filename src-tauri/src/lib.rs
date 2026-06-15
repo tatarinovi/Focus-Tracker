@@ -19,6 +19,10 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--minimized"]),
+        ))
         .manage(ReminderState::default())
         .manage(TimerCloseGuardState::default())
         .manage(commands::updates::UpdaterState::default())
@@ -49,6 +53,14 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 let is_max = window.is_maximized().unwrap_or(false);
                 let _ = window.emit("window-maximize-changed", is_max);
+            }
+
+            // Start minimized if --minimized flag is passed
+            let args: Vec<String> = std::env::args().collect();
+            if args.contains(&"--minimized".to_string()) {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
             }
 
             // System tray
@@ -193,6 +205,15 @@ pub fn run() {
             commands::jira_templates::load_jira_templates,
             commands::jira_templates::save_jira_template,
             commands::jira_templates::delete_jira_template,
+            // Palette
+            commands::palette::palette_show,
+            commands::palette::palette_hide,
+            commands::palette::palette_toggle,
+            commands::palette::palette_send_commands,
+            commands::palette::palette_request_commands,
+            commands::palette::palette_execute_command,
+            commands::palette::palette_show_main,
+            commands::palette::palette_set_enabled,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

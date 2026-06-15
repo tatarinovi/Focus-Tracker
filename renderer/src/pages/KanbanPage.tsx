@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useSearch } from "wouter";
 import { useApp } from "@/context/AppContext";
 import { Task, PROJECT_COLORS, formatMinutes, sortKanbanStatuses, sortKanbanPriorities, sortKanbanListTasks, taskStatusLabel, taskPriorityLabel, priorityColorForTask, KANBAN_STAGE_ORDER } from "@/data/mockData";
 import { Search, LayoutGrid, List, Pin, Star, Play, RefreshCw, FilterX, SlidersHorizontal } from "lucide-react";
@@ -78,6 +79,7 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
 export default function KanbanPage() {
   const { state, dispatch, startTimer, ensureKanbanLoaded, ensureKanbanTaskDetail } = useApp();
   const { tasks } = state;
+  const wouterSearch = useSearch();
   const [view, setView] = useState<'list' | 'board'>('list');
   const [search, setSearch] = useState('');
   const [filterProject, setFilterProject] = useState<string[]>([]);
@@ -91,6 +93,18 @@ export default function KanbanPage() {
   useEffect(() => {
     ensureKanbanLoaded(true);
   }, [ensureKanbanLoaded]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(wouterSearch);
+    const taskId = params.get('task');
+    if (taskId) {
+      const id = Number(taskId);
+      const task = tasks.find((t) => t.id === id);
+      if (task) {
+        openTask(task);
+      }
+    }
+  }, [wouterSearch, tasks]);
 
   const openTask = (task: Task) => {
     setSelectedTask(task);

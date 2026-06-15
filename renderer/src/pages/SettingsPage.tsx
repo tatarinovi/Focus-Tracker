@@ -149,6 +149,7 @@ export default function SettingsPage() {
         jira_project: next.jira.defaultProject,
         audio: next.audio,
         always_on_top: next.alwaysOnTop,
+        command_palette: next.commandPalette,
         resonance: {
           login: next.resonance.login,
           connected: next.resonance.connected,
@@ -163,6 +164,17 @@ export default function SettingsPage() {
       await window.api.saveConfig(nextConfig);
       if (partial.alwaysOnTop !== undefined) {
         await window.api.setAlwaysOnTop(partial.alwaysOnTop);
+      }
+      if (partial.commandPalette !== undefined) {
+        await window.api.paletteSetEnabled(partial.commandPalette);
+      }
+      if (partial.autostart !== undefined) {
+        const { enable, disable } = await import("@tauri-apps/plugin-autostart");
+        if (partial.autostart) {
+          await enable();
+        } else {
+          await disable();
+        }
       }
       dispatch({ type: 'SET_CONFIG', config: nextConfig });
       if (next.calendar.password && next.calendar.password !== '********') {
@@ -342,8 +354,9 @@ export default function SettingsPage() {
               <h2 className="text-sm font-semibold">Поведение</h2>
               {[
                 { label: 'Всегда поверх других окон', key: 'alwaysOnTop' as const },
-                { label: 'Компактный режим по умолчанию', key: 'compactMode' as const },
                 { label: 'Автозапуск при входе', key: 'autostart' as const },
+                { label: 'Запускать свёрнутым', key: 'startMinimized' as const },
+                { label: 'Command Palette (Ctrl+Shift+Space)', key: 'commandPalette' as const },
               ].map(({ label, key }) => (
                 <div key={key} className="flex items-center justify-between py-2 border-b border-border/50">
                   <span className="text-sm">{label}</span>

@@ -2,6 +2,6 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Permissions for the main app and reminder windows.",
-  "windows": ["main", "splash", "reminder"],
-  "permissions": ["core:event:default"]
+  "windows": ["main", "splash", "reminder", "command-palette"],
+  "permissions": ["core:event:default", "core:event:allow-listen", "core:event:allow-emit", "core:webview:allow-internal-toggle-devtools", "autostart:default"]
 }

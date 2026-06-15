@@ -71,6 +71,16 @@ declare global {
     onHotkeyError: (cb: (key: string) => void) => void;
     onReminderStartTask: (cb: (task: any) => void) => void;
     onStopAllSounds: (cb: () => void) => void;
+    // Palette
+    paletteShow: () => Promise<void>;
+    paletteHide: () => Promise<void>;
+    paletteToggle: () => Promise<void>;
+    paletteSendCommands: (commands: any[]) => Promise<void>;
+    paletteRequestCommands: () => Promise<void>;
+    paletteShowMain: () => Promise<void>;
+    paletteSetEnabled: (enabled: boolean) => Promise<void>;
+    onPaletteCommand: (cb: (command: any) => void) => () => void;
+    onPaletteShowRequest: (cb: () => void) => () => void;
   };
 
   interface Window {
@@ -86,6 +96,10 @@ declare global {
         isMaximized: () => Promise<boolean>;
         onMaximizeChange: (cb: (isMax: boolean) => void) => () => void;
       };
+    };
+    __TAURI__?: {
+      core: { invoke: (cmd: string, args?: any) => Promise<any> };
+      event: { emit: (event: string, payload?: any) => Promise<void>; listen: (event: string, cb: (e: any) => void) => Promise<() => void> };
     };
   }
 }

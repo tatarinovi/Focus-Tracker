@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.3.0";
+export const CURRENT_VERSION = "1.4.0";
 
 export const GITHUB_URL = "https://github.com/tatarinovi/Focus-Tracker";
 export const RELEASES_URL = "https://github.com/tatarinovi/Focus-Tracker/releases";
@@ -69,6 +69,16 @@ export const TECH_STACK = [
 ];
 
 export const CHANGELOG = [
+  {
+    version: "1.4.0",
+    date: "2026-06-15",
+    changes: [
+      "Command Palette — глобальная палитра команд (Ctrl+Shift+Space)",
+      "Fuzzy-поиск по командам с категориями: Таймер, Pomodoro, Bitrix24, Навигация",
+      "Навигация стрелками, выбор Enter, закрытие Esc",
+      "Отдельное Tauri-окно (always-on-top, frameless)",
+    ],
+  },
   {
     version: "1.3.0",
     date: "2026-06-15",

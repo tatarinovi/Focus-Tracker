@@ -27,6 +27,7 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, "renderer/index.html"),
         landing: path.resolve(__dirname, "renderer/landing.html"),
+        palette: path.resolve(__dirname, "renderer/palette.html"),
       },
     },
   },
