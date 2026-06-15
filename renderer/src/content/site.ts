@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.2.3";
+export const CURRENT_VERSION = "1.2.4";
 
 export const GITHUB_URL = "https://github.com/tatarinovi/Focus-Tracker";
 export const RELEASES_URL = "https://github.com/tatarinovi/Focus-Tracker/releases";
@@ -69,6 +69,17 @@ export const TECH_STACK = [
 ];
 
 export const CHANGELOG = [
+  {
+    version: "1.2.4",
+    date: "2026-06-15",
+    changes: [
+      "Kanban: фильтры свёрнуты в одну кнопку, список задач сортируется по дедлайну, новым и решённым",
+      "Детали задачи вынесены в общую панель — клик по задаче в «В фокусе» открывает её, ID ведёт в Kanban",
+      "Календарь: исправлен подсчёт участников созвона и распознавание ссылок Телемост (включая telemost.360.yandex.ru)",
+      "Кнопка «Подключиться» показывается только при наличии ссылки на видеовстречу, а не на страницу события",
+      "Главная: проект задачи в «В фокусе» показывается в подсказке без скачка вёрстки строки",
+    ],
+  },
   {
     version: "1.2.3",
     date: "2026-06-15",
