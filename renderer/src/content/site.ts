@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.2.0";
+export const CURRENT_VERSION = "1.2.1";
 
 export const GITHUB_URL = "https://github.com/tatarinovi/Focus-Tracker";
 export const RELEASES_URL = "https://github.com/tatarinovi/Focus-Tracker/releases";
@@ -69,6 +69,14 @@ export const TECH_STACK = [
 ];
 
 export const CHANGELOG = [
+  {
+    version: "1.2.1",
+    date: "2026-06-15",
+    changes: [
+      "Исправлено отображение календаря: повторяющиеся встречи (RRULE) теперь разворачиваются и показываются на нужные дни",
+      "Парсер .ics извлекает UID, RECURRENCE-ID, EXDATE, RDATE и DURATION",
+    ],
+  },
   {
     version: "1.2.0",
     date: "2026-06-14",
