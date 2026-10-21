@@ -1,6 +1,6 @@
 {
   "name": "focus-tracker",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Минималистичный тайм-трекер задач с Pomodoro",
   "license": "MIT",
   "author": "",
@@ -17,7 +17,7 @@
     "build:linux": "node scripts/tauri.cjs build --target x86_64-unknown-linux-gnu"
   },
   "devDependencies": {
-    "@tauri-apps/api": "^2",
+    "@tauri-apps/api": "~2.11.0",
     "@tauri-apps/cli": "^2",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.17",
@@ -58,7 +58,7 @@
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "^4.1.14",
     "@tanstack/react-query": "^5.90.21",
-    "@tauri-apps/plugin-autostart": "^2.5.1",
+    "@tauri-apps/plugin-autostart": "~2.5.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
