@@ -56,7 +56,19 @@ jobs:
           workspaces: './src-tauri -> target'
 
       - name: Install frontend dependencies
+        id: npm-install
+        env:
+          npm_config_cache: ${{ runner.temp }}/npm-cache
         run: npm install
+
+      - name: Upload npm debug logs
+        if: ${{ failure() && steps.npm-install.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-debug-${{ github.job }}-${{ runner.os }}
+          path: ${{ runner.temp }}/npm-cache/_logs/
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Verify release versions
         run: npm run version:check
@@ -118,7 +130,19 @@ jobs:
           node-version: 20
 
       - name: Install frontend dependencies
+        id: npm-install
+        env:
+          npm_config_cache: ${{ runner.temp }}/npm-cache
         run: npm install
+
+      - name: Upload npm debug logs
+        if: ${{ failure() && steps.npm-install.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-debug-${{ github.job }}-${{ runner.os }}
+          path: ${{ runner.temp }}/npm-cache/_logs/
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Build landing page
         run: npm run renderer:build
