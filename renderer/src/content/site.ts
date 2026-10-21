@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.4.1";
+export const CURRENT_VERSION = "1.4.2";
 
 export const GITHUB_URL = "https://github.com/tatarinovi/Focus-Tracker";
 export const RELEASES_URL = "https://github.com/tatarinovi/Focus-Tracker/releases";
